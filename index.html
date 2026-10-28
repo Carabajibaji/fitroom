@@ -475,7 +475,7 @@ const PRODUCTS=(()=>{
 const RETAILERS=[...new Set(PRODUCTS.map(p=>p.retailer))];
 
 /* ---------- State ---------- */
-const S={step:1,room:{type:'living',wft:15,win:0,lft:13,lin:6,door:'S',window:'N'},vibeText:'',styleManual:null,
+const S={step:1,room:{type:'living',wft:15,win:0,lft:13,lin:6,door:'S',window:'N'},vibeText:'',styleManual:null,aiWhy:'',aiMust:[],
   tier:'mid',photos:[],photoStyle:null,photoWhy:'',view:'3d',video:null,forced:{},layout:null,sel:null,dirty:true,skip:new Set()};
 
 /* ---------- Helpers ---------- */
@@ -765,6 +765,7 @@ ${appBtn('btn small')}</div>
 </div>
 <button class="btn primary wide" data-go="2">Next: choose a vibe</button>`}
 function detectLine(){
+  if(S.styleManual&&S.aiWhy)return`Claude read your words as <b>${STYLES[S.styleManual].name}</b>: ${esc(S.aiWhy)}`+(S.aiMust.length?`<br>Pieces it suggests: ${S.aiMust.map(esc).join(', ')}.`:'');
   if(S.styleManual)return`You picked <b>${STYLES[S.styleManual].name}</b>.`;
   const d=detect(S.vibeText),ph=S.photoStyle?`Your photos read as <b>${STYLES[S.photoStyle].name}</b>: ${esc(S.photoWhy)}.`:'';
   if(d.style)return`Sounds like <b>${STYLES[d.style].name}</b>, from “${d.matches.map(esc).join('”, “')}”.`+(ph?(S.photoStyle===d.style?' Your photos agree.':` ${ph} Your words take priority.`):'');
@@ -776,13 +777,14 @@ function p2(){const st=effStyle();return`
 <h1>Describe the vibe</h1>
 <p class="lede">Use your own words, pick a style, or add photos of rooms you love.</p>
 <label class="field"><span class="lbl">In your words</span><textarea id="vibe" rows="3" placeholder="Warm and calm, lots of natural wood, nothing too busy">${esc(S.vibeText)}</textarea></label>
+<div class="field"><button type="button" class="btn small" id="askAI">Ask Claude to read my words</button> <span class="hint" id="aiStatus"></span></div>
 <p class="detect" id="detect">${detectLine()}</p>
 <div class="styles" role="radiogroup" aria-label="Style">${Object.entries(STYLES).map(([k,s])=>`
 <button type="button" class="style" role="radio" aria-checked="${k===st}" data-style="${k}"><span class="sw5">${Object.values(s.pal).map(c=>`<span style="background:${c}"></span>`).join('')}</span><b>${s.name}</b><small>${s.blurb}</small></button>`).join('')}</div>
 <div class="field"><span class="lbl">Inspiration photos</span>
 <label class="btn small"><input type="file" accept="image/*" multiple id="pics" hidden>${S.photos.length?'Add more photos':'Add photos'}</label>${S.photos.length?' <button type="button" class="btn small" id="clearPics">Remove photos</button>':''}
 <div class="thumbs">${S.photos.map(p=>`<img src="${p}" alt="Inspiration photo">`).join('')}</div>
-<p class="hint">Furniture comes from the real catalogs of ${RETAILERS.length} US stores. Budget levels split each category into its cheapest, middle and priciest third. This demo reads style words and the colors in your photos, right in your browser. The full app will use AI vision to read your words and photos together.</p></div>
+<p class="hint">Furniture comes from the real catalogs of ${RETAILERS.length} US stores. Budget levels split each category into its cheapest, middle and priciest third. This demo reads style words in your browser, and the Ask Claude button sends your text to Claude to read it. Photos are read for color in your browser only. The full app will use AI vision to read your words and photos together.</p></div>
 <div class="field"><span class="lbl">Budget</span><div class="seg" id="tiers">${Object.entries(TIERS).map(([k,t])=>`<button type="button" data-tier="${k}" class="${S.tier===k?'on':''}">${t.label}</button>`).join('')}</div>
 <p class="hint" id="tierHint">${tierHint()}</p></div>
 <button class="btn primary wide" data-go="3">Design my room</button>`}
@@ -843,7 +845,7 @@ function markDirty(){S.dirty=true;S.forced={}}
 document.addEventListener('click',e=>{
   const g=e.target.closest('[data-go]');if(g){go(+g.dataset.go);return}
   const ty=e.target.closest('[data-type]');if(ty){S.room.type=ty.dataset.type;markDirty();document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('on',b===ty));renderBar();return}
-  const sb=e.target.closest('[data-style]');if(sb){S.styleManual=sb.dataset.style;markDirty();
+  const sb=e.target.closest('[data-style]');if(sb){S.styleManual=sb.dataset.style;S.aiWhy='';S.aiMust=[];markDirty();
     document.querySelectorAll('.style').forEach(b=>b.setAttribute('aria-checked',b===sb));$('#detect').innerHTML=detectLine();$('#tierHint').textContent=tierHint();return}
   const tb=e.target.closest('[data-tier]');if(tb){S.tier=tb.dataset.tier;markDirty();
     document.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('on',b===tb));$('#tierHint').textContent=tierHint();return}
@@ -851,6 +853,7 @@ document.addEventListener('click',e=>{
     S.forced[k]=o[(i+1)%o.length];S.layout=makeLayout();S.sel=grpKeys(k)[0]||null;render();return}
   const vw=e.target.closest('[data-view]');if(vw){const x=groups().find(q=>q.g===vw.dataset.view),p=x.p;
     openDlg(`<h3>${esc(p.name)}</h3><p>In the full app, this button opens the product page at ${p.retailer} through a tracked affiliate link${x.n>1?`, with ${x.n} in the cart`:''}.</p><p>The retailer handles payment, shipping and returns. Fitroom earns a commission on the sale, about ${money(x.price*COMMISSION)} here at an assumed ${COMMISSION*100}%.</p>`);return}
+  if(e.target.closest('#askAI')){askAI();return}
   if(e.target.closest('#getApp')||e.target.closest('[data-app]')){appInfo();return}
   if(e.target.closest('[data-scan]')){startScan();return}
   const qr=e.target.closest('[data-qr]');if(qr){qrDlg(qr.dataset.qr);return}
@@ -871,6 +874,38 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#clearPics')){S.photos=[];S.photoStyle=null;S.photoWhy='';markDirty();render();return}
   if(e.target.closest('#reset')){S.layout=makeLayout();S.sel=null;render();return}
 });
+
+/* ---------- Claude (via Cloudflare Worker; the API key never lives in this file) ---------- */
+const AI_URL='https://fitroom-ai.caraxieyx.workers.dev';
+const AI_STYLE={'japandi':'japandi','mid-century':'midcentury','midcentury':'midcentury','mid century':'midcentury','coastal':'coastal','industrial':'industrial','boho':'boho'};
+const AI_TIER={low:'value',mid:'mid',high:'premium'};
+async function askClaude(text){
+  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),15000);
+  try{
+    const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text}),signal:ctl.signal});
+    if(!r.ok)return null;
+    const raw=await r.text(),m=raw.match(/\{[\s\S]*\}/);if(!m)return null;
+    const j=JSON.parse(m[0]),style=AI_STYLE[String(j.style||'').toLowerCase().trim()];
+    if(!style)return null;
+    return{style,tier:AI_TIER[String(j.budget||'').toLowerCase()]||null,why:String(j.reason||'').slice(0,240),must:(Array.isArray(j.mustHave)?j.mustHave:[]).slice(0,6).map(x=>String(x).slice(0,60))};
+  }catch(e){return null}finally{clearTimeout(to)}
+}
+async function askAI(){
+  const text=S.vibeText.trim(),btn=$('#askAI'),st=$('#aiStatus');
+  if(!text){st.textContent='Type a few words about the vibe first.';return}
+  btn.disabled=true;st.textContent='Claude is reading your words…';
+  const res=await askClaude(text);
+  btn.disabled=false;
+  if(!$('#askAI'))return;
+  if(!res){st.textContent='Claude could not be reached, so the built-in word matcher is being used.';return}
+  S.styleManual=res.style;S.aiWhy=res.why||'It fits the words you used.';S.aiMust=res.must;
+  if(res.tier)S.tier=res.tier;
+  markDirty();st.textContent='';
+  $('#detect').innerHTML=detectLine();
+  document.querySelectorAll('.style').forEach(b=>b.setAttribute('aria-checked',b.dataset.style===res.style));
+  document.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('on',b.dataset.tier===S.tier));
+  $('#tierHint').textContent=tierHint();
+}
 function appBtn(cls){return TESTFLIGHT_URL?`<a class="${cls}" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">Get the beta on TestFlight</a>`:`<button type="button" class="${cls}" data-app="1">iPhone beta coming soon</button>`}
 function appInfo(){openDlg(`<h3>Fitroom for iPhone</h3><p>Scan your room with the camera, pick a vibe, and see real furniture from IKEA, Article, Target and more placed in 3D at true size.</p><ul><li>iPhone Pro models: automatic LiDAR scan that also finds doors and windows.</li><li>Other iPhones: aim at three floor corners and the ceiling.</li><li>Needs iOS 18.6 or newer.</li></ul>${TESTFLIGHT_URL?`<p><a class="btn primary" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">Get the beta on TestFlight</a></p>`:'<p>The TestFlight beta opens soon. Until then, try the full design flow right here.</p>'}`)}
 function openDlg(h){$('#dlgBody').innerHTML=h;$('#dlg').showModal()}
@@ -878,7 +913,7 @@ document.addEventListener('input',e=>{
   const id=e.target.id;
   if(['wft','win','lft','lin'].includes(id)){const v=parseInt(e.target.value,10);if(isNaN(v))return;
     S.room[id]=id.endsWith('in')?clamp(v,0,11):clamp(v,6,40);markDirty();renderPlan();renderBar()}
-  if(id==='vibe'){S.vibeText=e.target.value;S.styleManual=null;markDirty();$('#detect').innerHTML=detectLine();const st=effStyle();
+  if(id==='vibe'){S.vibeText=e.target.value;S.styleManual=null;S.aiWhy='';S.aiMust=[];markDirty();$('#detect').innerHTML=detectLine();const st=effStyle();
     document.querySelectorAll('.style').forEach(b=>b.setAttribute('aria-checked',b.dataset.style===st));$('#tierHint').textContent=tierHint()}
 });
 document.addEventListener('change',e=>{
@@ -1176,7 +1211,7 @@ async function analyzePhotos(){const rs=(await Promise.all(S.photos.map(readPhot
 
 /* ---------- Phone scanning (8th Wall engine; runs on the hosted site, not inside claude.ai) ---------- */
 const ON_PHONE=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-const CAN_SCAN_HERE=/(^|\.)github\.io$/.test(location.hostname)||location.hostname==='localhost'||(!!SITE_URL&&location.href.startsWith(SITE_URL));
+const CAN_SCAN_HERE=/(^|\.)(github\.io|app\.github\.dev)$/.test(location.hostname)||location.hostname==='localhost'||(!!SITE_URL&&location.href.startsWith(SITE_URL));
 const XR_SRC='https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js';
 const THREE_SRC='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 function scanBtn(){
