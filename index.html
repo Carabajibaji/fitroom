@@ -125,11 +125,13 @@ a.btn{text-decoration:none;color:inherit}
 .pick button{background:none;border:0;padding:0;color:var(--accent);font-weight:650;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .items{margin-top:6px}
 .items{display:grid;gap:10px}
-.row{display:grid;grid-template-columns:18px 76px 1fr auto;gap:6px 12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px rgba(30,42,53,.05);cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.row{display:grid;grid-template-columns:18px 92px 1fr auto;gap:6px 12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px rgba(30,42,53,.05);cursor:pointer;transition:box-shadow .15s,border-color .15s}
 .row:hover{box-shadow:0 4px 14px rgba(30,42,53,.10)}
 .row.sel{border-color:var(--ink);background:linear-gradient(90deg,var(--zone),var(--surface))}
-.row .tile{width:76px;height:76px;border-radius:11px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-.row .tile svg{width:68px;height:68px}
+.row .tile.ph{background:#f1efea !important}
+.row .tile img.pimg{width:100%;height:100%;object-fit:cover;display:block}
+.row .tile{width:92px;height:92px;border-radius:11px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.row .tile svg{width:80px;height:80px}
 .row .why{font-size:13px;color:var(--ink);margin-top:3px;line-height:1.35}
 .row .why b{font-weight:650}
 .row .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
@@ -211,6 +213,24 @@ dialog form{margin-top:6px}
 @media (prefers-reduced-motion:no-preference){
   .btn,.style,.seg button{transition:border-color .15s,background .15s,opacity .15s}
 }
+
+.fit3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fit3 label,.fit2 label{display:block}
+.fit2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.fitphoto{display:block;max-width:100%;max-height:170px;border-radius:10px;margin-top:8px;border:1px solid var(--line)}
+.verdict{border-radius:14px;padding:14px 16px;margin:6px 0 10px;border:1px solid var(--line);background:var(--floor)}
+.verdict b{display:block;font-size:19px;font-weight:760;margin-bottom:3px}
+.verdict span{font-size:14px;color:var(--muted)}
+.verdict.yes{border-color:var(--fit);background:rgba(46,125,91,.09)}.verdict.yes b{color:var(--fit)}
+.verdict.tight{border-color:#D39B2A;background:rgba(211,155,42,.11)}.verdict.tight b{color:#9A6B0A}
+.verdict.no{border-color:var(--warn);background:rgba(184,67,47,.09)}.verdict.no b{color:var(--warn)}
+.fitlist{list-style:none;margin:0 0 6px;padding:0}
+.fitlist li{padding:9px 0 9px 26px;border-top:1px solid var(--line);font-size:14.5px;position:relative}
+.fitlist li::before{content:"";position:absolute;left:4px;top:13px;width:12px;height:12px;border-radius:50%;background:var(--fit)}
+.fitlist li.tight::before{background:#D39B2A}.fitlist li.no::before{background:var(--warn)}
+.fitlist li.info::before{background:var(--muted)}
+.fitlist b{font-weight:650}
 </style>
 </head>
 <body>
@@ -221,6 +241,7 @@ dialog form{margin-top:6px}
     <button data-go="1"><span class="n">1</span>Room</button>
     <button data-go="2"><span class="n">2</span>Vibe</button>
     <button data-go="3"><span class="n">3</span>Design</button>
+    <button data-go="4"><span class="n">4</span>Fit check</button>
   </nav><button type="button" class="btn small" id="getApp">Get the iPhone app</button></div>
 </header>
 <main id="main" class="layout">
@@ -484,7 +505,7 @@ const PRODUCTS=(()=>{
 const RETAILERS=[...new Set(PRODUCTS.map(p=>p.retailer))];
 
 /* ---------- State ---------- */
-const S={step:1,room:{type:'living',wft:15,win:0,lft:13,lin:6,door:'S',window:'N'},vibeText:'',styleManual:null,aiWhy:'',aiMust:[],aiPics:false,aiWords:[],aiColors:[],
+const S={step:1,room:{type:'living',wft:15,win:0,lft:13,lin:6,door:'S',window:'N'},vibeText:'',styleManual:null,aiWhy:'',aiMust:[],aiPics:false,aiWords:[],aiColors:[],fit:{url:'',name:'',w:null,d:null,h:null,doorW:32,doorH:80,photo:null,status:''},fitBack:false,
   tier:'mid',photos:[],photoStyle:null,photoWhy:'',view:'3d',video:null,forced:{},layout:null,sel:null,dirty:true,skip:new Set()};
 
 /* ---------- Helpers ---------- */
@@ -734,6 +755,7 @@ function renderPlan2D(){
   const dz=doorRect(dw,W,L);
   const D={N:{o:[12,-t-1,34,t+2],h:[12,0],l:[12,34],a:[46,0],sw:1},S:{o:[12,L-1,34,t+2],h:[12,L],l:[12,L-34],a:[46,L],sw:0},
     W:{o:[-t-1,12,t+2,34],h:[0,12],l:[34,12],a:[0,46],sw:0},E:{o:[W-1,12,t+2,34],h:[W,12],l:[W-34,12],a:[W,46],sw:1}}[dw];
+  if(S.step===4)s+=fitSVG();
   if(S.step===3)s+=`<rect x="${dz.x}" y="${dz.y}" width="${dz.w}" height="${dz.h}" fill="var(--zone)"/>`;
   s+=`<rect x="${D.o[0]}" y="${D.o[1]}" width="${D.o[2]}" height="${D.o[3]}" fill="var(--floor)"/>`;
   s+=`<path d="M${D.a[0]} ${D.a[1]} A34 34 0 0 ${D.sw} ${D.l[0]} ${D.l[1]}" fill="none" stroke="var(--muted)" stroke-width=".7" stroke-dasharray="2 2"/>`;
@@ -772,7 +794,8 @@ ${appBtn('btn small')}</div>
 <label class="field"><span class="lbl">Door</span><select id="door">${wallOpts(r.door)}</select></label>
 <label class="field"><span class="lbl">Main window</span><select id="wnd">${wallOpts(r.window,true)}</select></label>
 </div>
-<button class="btn primary wide" data-go="2">Next: choose a vibe</button>`}
+<button class="btn primary wide" data-go="2">Next: choose a vibe</button>
+<button class="btn wide" data-go="4" style="margin-top:8px">Check if a piece of furniture fits</button>`}
 function detectLine(){
   if(S.styleManual&&S.aiWhy)return`Claude read your ${S.aiPics?'words and photos':'words'} as <b>${STYLES[S.styleManual].name}</b>: ${esc(S.aiWhy)}`+(S.aiWords.length?`<br>Words it noticed: ${S.aiWords.map(esc).join(', ')}.`:'')+(S.aiColors.length?`<br>Colors it saw: ${S.aiColors.map(c=>`<span title="${c}" style="display:inline-block;width:22px;height:22px;border-radius:6px;vertical-align:middle;margin-right:4px;border:1px solid rgba(0,0,0,.15);background:${c}"></span>`).join('')}`:'')+(S.aiMust.length?`<br>Pieces it suggests: ${S.aiMust.map(esc).join(', ')}.`:'');
   if(S.styleManual)return`You picked <b>${STYLES[S.styleManual].name}</b>.`;
@@ -798,6 +821,7 @@ function p2(){const st=effStyle();return`
 <p class="hint" id="tierHint">${tierHint()}</p></div>
 <button class="btn primary wide" data-go="3">Design my room</button>`}
 
+const PHOTOS={"https://www.article.com/product/25355/ceni-83-sofa-hemlock-green": "images/sofa.jpg", "https://www.target.com/p/vernon-upholstered-barrel-accent-chair-threshold-designed-with-studio-mcgee/-/A-83365994": "images/armchair.jpg", "https://www.article.com/product/24417/lenia-53-5-oval-coffee-table-walnut": "images/coffee.jpg", "https://www.ikea.com/us/en/p/stockholm-2025-tv-unit-with-sliding-doors-oak-veneer-90586638/": "images/tv.jpg", "https://www.ikea.com/us/en/p/lokaltag-rug-low-pile-beige-gray-20623408/": "images/rug.jpg", "https://www.ikea.com/us/en/p/ugglerum-side-table-brown-00627983/": "images/side.jpg", "https://www.article.com/product/2168/leap-floor-lamp-black": "images/lamp.jpg", "https://www.target.com/p/72-carson-5-shelf-bookcase-walnut-brown-threshold-8482/-/A-53513862": "images/shelf.jpg", "https://www.ikea.com/us/en/p/fejka-artificial-potted-plant-indoor-outdoor-bird-of-paradise-70610601/": "images/plant.jpg"};
 function icon(cat,col){
   const d=shade(col,-.28),l=shade(col,.25),S=`fill="${col}" stroke="${d}" stroke-width="1.4" stroke-linejoin="round"`,D=`fill="${d}"`,L=`fill="${l}" stroke="${d}" stroke-width="1.2"`;
   const R=(x,y,w,h,r,a)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r||0}" ${a||S}/>`;
@@ -825,6 +849,103 @@ function whyLine(p,g,n){
   const st=STYLES[p.style].name,match=p.style===S.layout.style;
   const a=match?`Matches your <b>${STYLES[S.layout.style].name}</b> style`:`Closest <b>${CATS[g].label.toLowerCase()}</b> that fits (${st} style)`;
   return`${a}, ${TIERS[p.tier].label.toLowerCase()} budget${n>1?`, ${n} for your room`:''}.`}
+
+/* ---------- Fit check: will this piece fit? ---------- */
+function fitPath(W,L,dw){const P=96;return{N:{x:12,y:0,w:34,h:P+34},S:{x:12,y:L-34-P,w:34,h:P+34},W:{x:0,y:12,w:P+34,h:34},E:{x:W-34-P,y:12,w:P+34,h:34}}[dw]}
+function fitCheck(){
+  const F=S.fit,W=roomW(),L=roomL(),w=+F.w,d=+F.d,h=+F.h||0;
+  if(!(w>0&&d>0))return null;
+  const Dw=+F.doorW||32,Dh=+F.doorH||80,lines=[];let worst=0;const bump=k=>{worst=Math.max(worst,k)};
+  /* doorway: carry it straight through; two of its three sides must fit the opening */
+  const dims=(h>0?[w,d,h]:[w,d]).sort((a,b)=>a-b);let margin;
+  if(dims.length===3){const [a,b]=dims,m1=Math.min(Dw-a,Dh-b),m2=Math.min(Dw-b,Dh-a);margin=Math.max(m1,m2)}
+  else margin=Dw-dims[0];
+  if(margin>=1)lines.push({k:'ok',t:'Doorway:',m:`it should get through the ${inch(Dw)} door, with about ${inch(margin)} to spare.`});
+  else if(margin>=0){bump(1);lines.push({k:'tight',t:'Doorway:',m:`very tight through the ${inch(Dw)} door, under 1" to spare. Measure the actual opening.`})}
+  else if(margin>=-3){bump(1);lines.push({k:'tight',t:'Doorway:',m:`its narrowest side is about ${inch(-margin)} over the ${inch(Dw)} opening. Movers can often tilt it through, and taking the door off its hinges gains roughly 1½". Measure the real opening first.`})}
+  else{bump(2);lines.push({k:'no',t:'Doorway:',m:`it is too big to go through a ${inch(Dw)} door as one piece (its two narrowest sides are ${inch(dims[0])} and ${inch(dims[1])}). Check whether it ships in parts, or whether a wider entrance exists.`})}
+  if(h<=0)lines.push({k:'info',t:'Height:',m:'not entered, so the doorway check uses width and depth only.'});
+  else if(h>=96){bump(2);lines.push({k:'no',t:'Height:',m:`${inch(h)} is taller than a standard 8 ft ceiling.`})}
+  /* floor space and walking space, placed against a wall */
+  const dw=S.room.door,dz=doorRect(dw,W,L),path=fitPath(W,L,dw);let best=null;
+  for(const wall of ['N','S','W','E']){const horiz=wall==='N'||wall==='S',len=horiz?W:L,dep=horiz?L:W;
+    for(const [al,dp] of (w===d?[[w,d]]:[[w,d],[d,w]])){if(al>len||dp>dep)continue;
+      const cand=[];for(let x=0;x<=len-al+.01;x+=3)cand.push(x);cand.push((len-al)/2);
+      for(const x of cand){const r=horiz?{x,y:wall==='N'?0:L-dp,w:al,h:dp}:{x:wall==='W'?0:W-dp,y:x,w:dp,h:al};
+        if(hit(r,dz)||hit(r,path))continue;
+        const front=dep-dp,gA=x,gB=len-al-x,pinch=[gA,gB].some(g=>g>1&&g<18);
+        const score=Math.min(front,96)-(pinch?30:0)-Math.abs(x-(len-al)/2)*.05;
+        if(!best||score>best.score)best={r,wall,front,pinch,score}}}}
+  let rect=null;
+  if(!best){
+    const fits=(w<=W&&d<=L)||(d<=W&&w<=L);bump(2);
+    lines.push({k:'no',t:'Floor space:',m:fits?`there is no spot along a wall that keeps the door swing and the first 8 ft inside the door clear.`:`it is bigger than the room (${fmt(W)} × ${fmt(L)}).`})}
+  else{rect=best.r;
+    const pct=Math.round(w*d/(W*L)*100),name={N:'top',S:'bottom',W:'left',E:'right'}[best.wall];
+    lines.push({k:'ok',t:'Floor space:',m:`it fits along the ${name} wall on the plan (it takes up about ${pct}% of the floor).`});
+    if(best.front>=36)lines.push({k:'ok',t:'Walking space:',m:`about ${fmt(best.front)} of open floor in front of it. Designers aim for at least 30".`});
+    else if(best.front>=30){bump(1);lines.push({k:'tight',t:'Walking space:',m:`${fmt(best.front)} in front of it. That works, but it is tight.`})}
+    else{bump(2);lines.push({k:'no',t:'Walking space:',m:`only ${fmt(Math.max(best.front,0))} in front of it, under the 30" designers aim for.`})}
+    lines.push({k:'ok',t:'Door swing:',m:'the door swing and the first 8 ft inside the door stay clear.'});
+    if(best.pinch)lines.push({k:'tight',t:'Gap:',m:'it leaves a narrow gap beside it. Slide it against a wall or corner.'})}
+  const verdict=worst===0?'ok':worst===1?'tight':'no';
+  return{verdict,lines,rect,summary:`${F.name?F.name+': ':''}${inch(w)} W × ${inch(d)} D${h?` × ${inch(h)} H`:''} in a ${fmt(W)} × ${fmt(L)} room.`}}
+function fitResultHTML(){
+  const R=fitCheck();
+  if(!R)return`<p class="hint">Enter the piece's width and depth (and height if you know it) to see the result.</p>`;
+  const cls={ok:'yes',tight:'tight',no:'no'}[R.verdict],head={ok:'Yes, it should fit',tight:'It fits, but it is tight',no:'No, it will not work as placed'}[R.verdict];
+  return`<div class="verdict ${cls}"><b>${head}</b><span>${esc(R.summary)}</span></div><ul class="fitlist">${R.lines.map(l=>`<li class="${l.k}"><b>${l.t}</b> ${l.m}</li>`).join('')}</ul>`}
+function fitSVG(){
+  const W=roomW(),L=roomL(),dw=S.room.door,dz=doorRect(dw,W,L),pa=fitPath(W,L,dw),R=fitCheck(),fs=Math.max(7,Math.min(W,L)/24);
+  let s=`<rect x="${dz.x}" y="${dz.y}" width="${dz.w}" height="${dz.h}" fill="var(--zone)"/><rect x="${pa.x}" y="${pa.y}" width="${pa.w}" height="${pa.h}" fill="none" stroke="var(--muted)" stroke-width=".8" stroke-dasharray="3 3"/>`;
+  if(R&&R.rect){const r=R.rect,col=R.verdict==='no'?'#C0392B':R.verdict==='tight'?'#D39B2A':'#2E7D57',F=S.fit;
+    s+=`<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="2" fill="${col}" fill-opacity=".3" stroke="${col}" stroke-width="1.8"/>`;
+    s+=`<text x="${r.x+r.w/2}" y="${r.y+r.h/2}" font-size="${fs}" font-weight="650" fill="var(--ink)" text-anchor="middle" dominant-baseline="central">${inch(+F.w)} × ${inch(+F.d)}</text>`}
+  return s}
+function p4(){const F=S.fit,r=S.room,v=x=>x==null?'':x;return`
+<h1>Will it fit?</h1>
+<p class="lede">Add your room and a piece of furniture. Fitroom checks the doorway, the floor space and the walking room.</p>
+<div class="field"><span class="lbl">1. Your room</span>
+<p class="hint" style="margin:0">${fmt(roomW())} × ${fmt(roomL())} ${RT().noun}, door on the ${WALLN[r.door]} wall.${S.scanNote?' '+esc(S.scanNote):''}</p>
+<div class="scanrow" style="margin-top:8px">${scanBtn()} <button type="button" class="btn small" data-go="1">Type the size instead</button></div>
+<div style="margin-top:8px"><label class="btn small"><input type="file" accept="image/*" id="fitPhoto" hidden>${F.photo?'Change room photo':'Add a room photo'}</label></div>
+${F.photo?`<img class="fitphoto" src="${F.photo}" alt="Your room photo">`:''}
+<p class="hint">The photo is kept here for reference. The fit check uses measurements, not the photo.</p></div>
+<label class="field"><span class="lbl">2. Furniture link</span><input type="url" id="fitUrl" placeholder="Paste a product link from IKEA, Article, Target…" value="${esc(F.url)}"></label>
+<div class="field"><button type="button" class="btn small" id="fitFetch">Read the size from the link</button> <span class="hint" id="fitStatus">${esc(F.status)}</span></div>
+<div class="field"><span class="lbl">Size in inches</span><div class="fit3">
+<label><span class="hint">Width</span><input type="number" id="fitW" min="1" step="0.5" inputmode="decimal" value="${v(F.w)}"></label>
+<label><span class="hint">Depth</span><input type="number" id="fitD" min="1" step="0.5" inputmode="decimal" value="${v(F.d)}"></label>
+<label><span class="hint">Height</span><input type="number" id="fitH" min="1" step="0.5" inputmode="decimal" value="${v(F.h)}"></label></div>
+<p class="hint">Check these against the store page. Sizes read from a link can be wrong.</p></div>
+<div class="field"><span class="lbl">3. Doorway (inches, the clear opening)</span><div class="fit2">
+<label><span class="hint">Door width</span><input type="number" id="fitDW" min="12" step="0.5" inputmode="decimal" value="${v(F.doorW)}"></label>
+<label><span class="hint">Door height</span><input type="number" id="fitDH" min="48" step="0.5" inputmode="decimal" value="${v(F.doorH)}"></label></div></div>
+<div id="fitRes">${fitResultHTML()}</div>
+<p class="hint">Checked against an empty room, with the piece against a wall. Furniture already in the room, hallways, stairs and elevators are not counted.</p>
+<p style="margin-top:16px"><button class="btn" data-go="2">Next: style and design</button></p>`}
+document.addEventListener('input',e=>{const id=e.target.id;if(!id||id.indexOf('fit')!==0||id==='fitPhoto')return;const F=S.fit;
+  if(id==='fitUrl'){F.url=e.target.value;return}
+  const key={fitW:'w',fitD:'d',fitH:'h',fitDW:'doorW',fitDH:'doorH'}[id];if(!key)return;
+  const v=parseFloat(e.target.value);F[key]=isNaN(v)?null:v;$('#fitRes').innerHTML=fitResultHTML();renderPlan();renderBar()});
+document.addEventListener('change',e=>{if(e.target.id!=='fitPhoto'||!e.target.files[0])return;
+  const rd=new FileReader();rd.onload=()=>{S.fit.photo=rd.result;render()};rd.readAsDataURL(e.target.files[0])});
+document.addEventListener('click',e=>{if(e.target.closest('#fitFetch'))fitFetch()});
+async function fitFetch(){
+  const F=S.fit,u=F.url.trim(),st=$('#fitStatus'),btn=$('#fitFetch');
+  if(!/^https?:\/\//i.test(u)){F.status='Paste the full link, starting with https://';st.textContent=F.status;return}
+  btn.disabled=true;st.textContent='Reading the page… this can take up to 30 seconds.';
+  let j=null;
+  try{const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),35000);
+    const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u}),signal:ctl.signal});clearTimeout(to);
+    const raw=await r.text(),m=raw.match(/\{[\s\S]*\}/);j=m?JSON.parse(m[0]):null}catch(e){j=null}
+  btn.disabled=false;if(!$('#fitFetch'))return;
+  if(!j||j.error||!(j.width_in>0&&j.depth_in>0)){F.status=(j&&j.error==='blocked'?'That store blocked the page. ':'Could not read a size from that page. ')+'Type the size from the product page below.';st.textContent=F.status;return}
+  const rd=x=>Math.round(x*10)/10;
+  F.w=rd(j.width_in);F.d=rd(j.depth_in);F.h=j.height_in>0?rd(j.height_in):null;F.name=String(j.name||'').slice(0,80);
+  F.status='Read from the page'+(j.note?' ('+String(j.note).slice(0,120)+')':'')+'. Check it against the store page.';
+  st.textContent=F.status;$('#fitW').value=F.w;$('#fitD').value=F.d;$('#fitH').value=F.h==null?'':F.h;
+  $('#fitRes').innerHTML=fitResultHTML();renderPlan();renderBar()}
 function groups(){const L=S.layout;return ROOMS[L.type].show.filter(g=>Object.values(L.items).some(it=>it.grp===g)).map(g=>{const ks=grpKeys(g),it=L.items[ks[0]];return{g,ks,p:it.p,n:ks.length,price:it.p.price*ks.length}})}
 function p3(){const L=S.layout,st=STYLES[L.style],noun=ROOMS[L.type].noun;
   if(!Object.keys(L.items).length)return`<h1>That's a snug room</h1><p class="lede">${L.notes[0]}</p><button class="btn primary" data-go="1">Change room size</button>`;
@@ -840,8 +961,8 @@ function p3(){const L=S.layout,st=STYLES[L.style],noun=ROOMS[L.type].noun;
 <div class="items">${gs.map(({g,p,n,price})=>{const more=L.options[g].length-1,selG=S.sel&&L.items[S.sel]&&L.items[S.sel].grp===g;return`
 <div class="row${selG?' sel':''}${S.skip.has(g)?' off':''}" data-row="${g}">
 <input type="checkbox" class="ck" data-ck="${g}" ${S.skip.has(g)?'':'checked'} aria-label="Buy ${esc(p.name)}">
-<div class="tile" style="background:linear-gradient(160deg,${shade(colorFor(p),.82)},${shade(colorFor(p),.62)})">${icon(g,colorFor(p))}</div>
-<div><div class="nm">${esc(p.name)}${n>1?`, set of ${n}`:''}</div><div class="meta">${CATS[g].label} · ${inch(p.w)} W × ${inch(p.d)} D${g==='lamp'?' footprint':''} · ${p.retailer}</div><div class="why">${whyLine(p,g,n)}</div><div class="chips"><span class="chip ok">Fits your room</span><span class="chip">${TIERS[p.tier].label}</span><span class="chip">${STYLES[p.style].name}</span></div></div>
+<div class="tile${PHOTOS[p.url]?' ph':''}" style="background:linear-gradient(160deg,${shade(colorFor(p),.82)},${shade(colorFor(p),.62)})">${PHOTOS[p.url]?`<img class="pimg" src="${PHOTOS[p.url]}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'">`:icon(g,colorFor(p))}</div>
+<div><div class="nm">${esc(p.name)}${n>1?`, set of ${n}`:''}</div><div class="meta">${CATS[g].label} · ${inch(p.w)} W × ${inch(p.d)} D${g==='lamp'?' footprint':''} · ${p.retailer}</div><div class="why">${whyLine(p,g,n)}</div><div class="chips"><span class="chip ok">Fits your room</span><span class="chip">${TIERS[p.tier].label}</span><span class="chip">${STYLES[p.style].name}</span>${PHOTOS[p.url]?`<span class="chip">Photo: ${p.retailer}</span>`:''}</div></div>
 <div class="pr">${money(price)}${n>1?`<div class="meta">${n} × ${money(p.price)}</div>`:''}</div>
 <div class="acts"><button class="btn small" data-swap="${g}" ${more<1?'disabled':''}>${more<1?'Only size that fits':`Swap (${more} more fit)`}</button><a class="btn small" href="${p.url}" target="_blank" rel="noopener">View at ${p.retailer}</a></div>
 </div>`}).join('')}</div>
@@ -861,20 +982,22 @@ function updatePick(){const {n,total}=picked(),all=groups().length;
   renderPlan();renderBar()}
 function renderBar(){
   const W=roomW(),L=roomL(),ww=S.room.window;
-  if(S.step<3||!S.layout||!Object.keys(S.layout.items).length){
-    bar.innerHTML=`<p class="cap"><b>${fmt(W)} × ${fmt(L)}</b> ${RT().noun}, about ${Math.round(W*L/144)} sq ft. Door on the ${WALLN[S.room.door]} wall${ww!=='none'?`, window on the ${WALLN[ww]} wall`:''}.</p>`;return}
+  if(S.step!==3||!S.layout||!Object.keys(S.layout.items).length){
+    const fv=S.step===4?fitCheck():null;
+    bar.innerHTML=(fv?`<div class="verdict ${{ok:'yes',tight:'tight',no:'no'}[fv.verdict]}"><b>${{ok:'Yes, it should fit',tight:'It fits, but it is tight',no:'No, it will not work as placed'}[fv.verdict]}</b><span>${fv.lines.filter(l=>l.k!=='ok'&&l.k!=='info').map(l=>l.t+' '+l.m).join(' ')||'Doorway, floor space and walking room all check out.'}</span></div>`:'')+`<p class="cap"><b>${fmt(W)} × ${fmt(L)}</b> ${RT().noun}, about ${Math.round(W*L/144)} sq ft. Door on the ${WALLN[S.room.door]} wall${ww!=='none'?`, window on the ${WALLN[ww]} wall`:''}.</p>`;return}
   const c=conflicts(),it=S.sel&&S.layout.items[S.sel],sl=it?CATS[it.grp].label.toLowerCase():'';
   bar.innerHTML=`<p class="status ${c.list.length?'bad':'ok'}">${c.list.length?esc(c.list.join('. '))+'.':'Everything fits, with the door swing and walkways clear.'}</p>
 <div class="tools"><button class="btn small" id="rot" ${it?'':'disabled'}>${it?'Rotate '+sl:'Rotate'}</button><button class="btn small" id="reset">Reset layout</button></div>
 <p class="hint">${S.view==='3d'&&G3.ok?'Drag furniture to move it; drag empty space to look around.':'Drag pieces to move them.'} Select one, then use arrow keys to nudge or R to rotate.</p>`}
 function render(){
-  panel.innerHTML=S.step===1?p1():S.step===2?p2():p3();
+  panel.innerHTML=S.step===1?p1():S.step===2?p2():S.step===4?p4():p3();
   document.querySelectorAll('.steps button').forEach(b=>{if(+b.dataset.go===S.step)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current')});
   $('#main').classList.toggle('s3',S.step===3);
   applyView();renderBar();
 }
 function go(n){
   if(n===3&&(S.dirty||!S.layout)){S.layout=makeLayout();S.sel=null;S.dirty=false;S.skip.clear()}
+  if(n===4)S.view='plan';
   S.step=n;render();window.scrollTo({top:0});
 }
 function markDirty(){S.dirty=true;S.forced={}}
@@ -893,7 +1016,7 @@ document.addEventListener('click',e=>{
     openDlg(`<h3>${esc(p.name)}</h3><p>In the full app, this button opens the product page at ${p.retailer} through a tracked affiliate link${x.n>1?`, with ${x.n} in the cart`:''}.</p><p>The retailer handles payment, shipping and returns. Fitroom earns a commission on the sale, about ${money(x.price*COMMISSION)} here at an assumed ${COMMISSION*100}%.</p>`);return}
   if(e.target.closest('#askAI')){askAI();return}
   if(e.target.closest('#getApp')||e.target.closest('[data-app]')){appInfo();return}
-  if(e.target.closest('[data-scan]')){startScan();return}
+  if(e.target.closest('[data-scan]')){S.fitBack=S.step===4;startScan();return}
   const qr=e.target.closest('[data-qr]');if(qr){qrDlg(qr.dataset.qr);return}
   if(e.target.closest('#scanClose')){stopScan();return}
   if(e.target.closest('#scanUndo')){scanUndo();return}
@@ -1350,10 +1473,10 @@ function scanUse(){if(SC.len==null||SC.wid==null)return;
   const a=Math.round(Math.max(SC.len,SC.wid)*39.3701),b=Math.round(Math.min(SC.len,SC.wid)*39.3701),cl=i=>clamp(i,72,480);
   const W=cl(a),L=cl(b);Object.assign(S.room,{wft:Math.floor(W/12),win:W%12,lft:Math.floor(L/12),lin:L%12});
   S.scanNote=`Measured with your phone: ${fmt(W)} by ${fmt(L)}. Check the door and window walls below.`;
-  markDirty();stopScan();S.step=1;render();window.scrollTo({top:0})}
+  markDirty();stopScan();S.step=S.fitBack?4:1;S.fitBack=false;render();window.scrollTo({top:0})}
 
 /* ---------- View switching ---------- */
-function applyView(){if(!G3.ok)S.view='plan';
+function applyView(){if(!G3.ok||S.step===4)S.view='plan';
   $('#v3').hidden=S.view!=='3d';$('#pw').hidden=S.view==='3d';$('#cams').style.visibility=S.view==='3d'?'visible':'hidden';
   document.querySelectorAll('[data-v]').forEach(b=>{b.classList.toggle('on',b.dataset.v===S.view);b.setAttribute('aria-pressed',b.dataset.v===S.view)});
   if(!G3.ok){const b=document.querySelector('[data-v="3d"]');b.disabled=true;b.title='3D needs WebGL, which is turned off in this browser'}
