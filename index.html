@@ -124,15 +124,24 @@ a.btn{text-decoration:none;color:inherit}
 .pick{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:14px 0 0;font-size:14px;color:var(--muted)}
 .pick button{background:none;border:0;padding:0;color:var(--accent);font-weight:650;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .items{margin-top:6px}
-.row{display:grid;grid-template-columns:18px 1fr auto;gap:4px 12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
-.row.sel{background:linear-gradient(90deg,var(--zone),transparent)}
+.items{display:grid;gap:10px}
+.row{display:grid;grid-template-columns:18px 76px 1fr auto;gap:6px 12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 1px 2px rgba(30,42,53,.05);cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.row:hover{box-shadow:0 4px 14px rgba(30,42,53,.10)}
+.row.sel{border-color:var(--ink);background:linear-gradient(90deg,var(--zone),var(--surface))}
+.row .tile{width:76px;height:76px;border-radius:11px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.row .tile svg{width:68px;height:68px}
+.row .why{font-size:13px;color:var(--ink);margin-top:3px;line-height:1.35}
+.row .why b{font-weight:650}
+.row .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.row .chip{font-size:11.5px;font-weight:650;padding:2px 8px;border-radius:99px;background:rgba(30,42,53,.07);color:var(--ink)}
+.row .chip.ok{background:rgba(46,125,87,.13);color:var(--fit)}
 .row .swc{width:14px;height:14px;border-radius:3px;margin-top:4px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
 .row .nm{font-weight:650}
 .row .meta{color:var(--muted);font-size:13.5px}
 .row .pr{font-weight:650;text-align:right}
 .row.off .nm,.row.off .pr,.row.off .meta{opacity:.45}
 .row .ck{width:18px;height:18px;margin:2px 0 0;accent-color:var(--ink);cursor:pointer}
-.row .acts{grid-column:2 / 4;display:flex;gap:6px;margin-top:4px}
+.row .acts{grid-column:2 / 5;display:flex;gap:6px;margin-top:4px}
 .fitb{display:inline-block;font-size:12px;font-weight:650;color:var(--fit);margin-left:6px}
 .notes{margin:0;padding-left:18px}
 .notes li{margin:0 0 7px;font-size:14.5px}
@@ -475,7 +484,7 @@ const PRODUCTS=(()=>{
 const RETAILERS=[...new Set(PRODUCTS.map(p=>p.retailer))];
 
 /* ---------- State ---------- */
-const S={step:1,room:{type:'living',wft:15,win:0,lft:13,lin:6,door:'S',window:'N'},vibeText:'',styleManual:null,aiWhy:'',aiMust:[],aiPics:false,
+const S={step:1,room:{type:'living',wft:15,win:0,lft:13,lin:6,door:'S',window:'N'},vibeText:'',styleManual:null,aiWhy:'',aiMust:[],aiPics:false,aiWords:[],aiColors:[],
   tier:'mid',photos:[],photoStyle:null,photoWhy:'',view:'3d',video:null,forced:{},layout:null,sel:null,dirty:true,skip:new Set()};
 
 /* ---------- Helpers ---------- */
@@ -765,7 +774,7 @@ ${appBtn('btn small')}</div>
 </div>
 <button class="btn primary wide" data-go="2">Next: choose a vibe</button>`}
 function detectLine(){
-  if(S.styleManual&&S.aiWhy)return`Claude read your ${S.aiPics?'words and photos':'words'} as <b>${STYLES[S.styleManual].name}</b>: ${esc(S.aiWhy)}`+(S.aiMust.length?`<br>Pieces it suggests: ${S.aiMust.map(esc).join(', ')}.`:'');
+  if(S.styleManual&&S.aiWhy)return`Claude read your ${S.aiPics?'words and photos':'words'} as <b>${STYLES[S.styleManual].name}</b>: ${esc(S.aiWhy)}`+(S.aiWords.length?`<br>Words it noticed: ${S.aiWords.map(esc).join(', ')}.`:'')+(S.aiColors.length?`<br>Colors it saw: ${S.aiColors.map(c=>`<span title="${c}" style="display:inline-block;width:22px;height:22px;border-radius:6px;vertical-align:middle;margin-right:4px;border:1px solid rgba(0,0,0,.15);background:${c}"></span>`).join('')}`:'')+(S.aiMust.length?`<br>Pieces it suggests: ${S.aiMust.map(esc).join(', ')}.`:'');
   if(S.styleManual)return`You picked <b>${STYLES[S.styleManual].name}</b>.`;
   const d=detect(S.vibeText),ph=S.photoStyle?`Your photos read as <b>${STYLES[S.photoStyle].name}</b>: ${esc(S.photoWhy)}.`:'';
   if(d.style)return`Sounds like <b>${STYLES[d.style].name}</b>, from “${d.matches.map(esc).join('”, “')}”.`+(ph?(S.photoStyle===d.style?' Your photos agree.':` ${ph} Your words take priority.`):'');
@@ -788,6 +797,34 @@ function p2(){const st=effStyle();return`
 <div class="field"><span class="lbl">Budget</span><div class="seg" id="tiers">${Object.entries(TIERS).map(([k,t])=>`<button type="button" data-tier="${k}" class="${S.tier===k?'on':''}">${t.label}</button>`).join('')}</div>
 <p class="hint" id="tierHint">${tierHint()}</p></div>
 <button class="btn primary wide" data-go="3">Design my room</button>`}
+
+function icon(cat,col){
+  const d=shade(col,-.28),l=shade(col,.25),S=`fill="${col}" stroke="${d}" stroke-width="1.4" stroke-linejoin="round"`,D=`fill="${d}"`,L=`fill="${l}" stroke="${d}" stroke-width="1.2"`;
+  const R=(x,y,w,h,r,a)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r||0}" ${a||S}/>`;
+  const g={
+    sofa:R(10,26,48,16,4)+R(6,34,12,16,4)+R(50,34,12,16,4)+R(16,40,36,10,3,L)+R(12,52,4,5,1,D)+R(52,52,4,5,1,D),
+    armchair:R(16,24,36,18,5)+R(11,34,12,18,4)+R(45,34,12,18,4)+R(22,40,24,10,3,L)+R(15,53,4,5,1,D)+R(49,53,4,5,1,D),
+    bed:R(8,16,52,14,3)+R(6,32,56,14,4)+R(12,28,18,8,3,L)+R(38,28,18,8,3,L)+R(8,48,5,8,1,D)+R(55,48,5,8,1,D),
+    night:R(18,20,32,30,3)+R(21,24,26,10,2,L)+R(21,37,26,10,2,L)+`<circle cx="34" cy="29" r="1.8" ${D}/><circle cx="34" cy="42" r="1.8" ${D}/>`+R(20,50,4,8,1,D)+R(44,50,4,8,1,D),
+    dresser:R(8,20,52,30,3)+R(11,24,46,7,2,L)+R(11,33,46,7,2,L)+R(11,42,46,6,2,L)+R(12,50,4,8,1,D)+R(52,50,4,8,1,D),
+    coffee:R(6,32,56,7,3)+R(12,39,4,18,1,D)+R(52,39,4,18,1,D)+R(24,22,10,8,2,L),
+    side:R(18,26,32,6,3)+R(22,32,3.5,24,1,D)+R(42.5,32,3.5,24,1,D),
+    tv:R(6,40,56,14,2)+R(10,43,22,8,1,L)+R(36,43,22,8,1,L)+R(12,12,44,26,2," fill=\"#222\" stroke=\"#000\" stroke-width=\"1\"")+R(30,38,8,3,0,D),
+    rug:`<ellipse cx="34" cy="38" rx="30" ry="14" ${S}/><ellipse cx="34" cy="38" rx="22" ry="9" fill="none" stroke="${l}" stroke-width="2"/>`,
+    lamp:`<path d="M24 12h20l5 17H19z" ${L}/>`+R(32.5,29,3,25,1,D)+`<ellipse cx="34" cy="56" rx="11" ry="3" ${D}/>`,
+    shelf:R(16,8,36,50,2)+[19,30,41].map(y=>R(18,y,32,2.4,0,D)).join('')+R(22,12,5,7,0,L)+R(29,13,4,6,0,L)+R(24,33,6,8,0,L)+R(36,22,5,8,0,L)+R(21,44,7,10,0,L),
+    plant:`<path d="M24 40h20l-3 18H27z" ${S}/>`+`<circle cx="34" cy="22" r="13" fill="#6F8F5A" stroke="#4A6B3A" stroke-width="1.4"/><circle cx="25" cy="30" r="8" fill="#82A56B"/><circle cx="43" cy="30" r="8" fill="#5E7F4B"/>`,
+    bench:R(8,30,52,12,4)+R(14,42,4,14,1,D)+R(50,42,4,14,1,D)+R(12,32,44,5,2,L),
+    dtable:R(6,28,56,7,3)+R(11,35,4,22,1,D)+R(53,35,4,22,1,D)+R(24,35,3,10,0,D),
+    dchair:R(20,12,28,22,4)+R(18,32,32,8,3)+R(21,40,4,17,1,D)+R(43,40,4,17,1,D),
+    sideboard:R(6,24,56,26,3)+R(9,28,24,18,2,L)+R(35,28,24,18,2,L)+R(12,50,4,8,1,D)+R(52,50,4,8,1,D),
+    barcart:R(14,16,40,5,2)+R(14,36,40,5,2)+R(17,21,3,15,0,D)+R(48,21,3,15,0,D)+`<circle cx="20" cy="52" r="4.5" ${D}/><circle cx="48" cy="52" r="4.5" ${D}/>`+R(22,6,6,10,2,L)+R(32,8,5,8,2,L)
+  };
+  return`<svg viewBox="0 0 68 68" aria-hidden="true">${g[cat]||R(14,18,40,32,4)}</svg>`}
+function whyLine(p,g,n){
+  const st=STYLES[p.style].name,match=p.style===S.layout.style;
+  const a=match?`Matches your <b>${STYLES[S.layout.style].name}</b> style`:`Closest <b>${CATS[g].label.toLowerCase()}</b> that fits (${st} style)`;
+  return`${a}, ${TIERS[p.tier].label.toLowerCase()} budget${n>1?`, ${n} for your room`:''}.`}
 function groups(){const L=S.layout;return ROOMS[L.type].show.filter(g=>Object.values(L.items).some(it=>it.grp===g)).map(g=>{const ks=grpKeys(g),it=L.items[ks[0]];return{g,ks,p:it.p,n:ks.length,price:it.p.price*ks.length}})}
 function p3(){const L=S.layout,st=STYLES[L.style],noun=ROOMS[L.type].noun;
   if(!Object.keys(L.items).length)return`<h1>That's a snug room</h1><p class="lede">${L.notes[0]}</p><button class="btn primary" data-go="1">Change room size</button>`;
@@ -803,7 +840,8 @@ function p3(){const L=S.layout,st=STYLES[L.style],noun=ROOMS[L.type].noun;
 <div class="items">${gs.map(({g,p,n,price})=>{const more=L.options[g].length-1,selG=S.sel&&L.items[S.sel]&&L.items[S.sel].grp===g;return`
 <div class="row${selG?' sel':''}${S.skip.has(g)?' off':''}" data-row="${g}">
 <input type="checkbox" class="ck" data-ck="${g}" ${S.skip.has(g)?'':'checked'} aria-label="Buy ${esc(p.name)}">
-<div><div class="nm"><span class="swc" style="background:${colorFor(p)};display:inline-block;width:11px;height:11px;margin:0 7px 0 0;vertical-align:0"></span>${esc(p.name)}${n>1?`, set of ${n}`:''}</div><div class="meta">${CATS[g].label}, ${inch(p.w)} W × ${inch(p.d)} D${g==='lamp'?' footprint':''}<span class="fitb">Fits</span></div><div class="meta">${p.retailer}, ${TIERS[p.tier].label.toLowerCase()}${p.style!==L.style?`, ${STYLES[p.style].name} style`:''}</div></div>
+<div class="tile" style="background:linear-gradient(160deg,${shade(colorFor(p),.82)},${shade(colorFor(p),.62)})">${icon(g,colorFor(p))}</div>
+<div><div class="nm">${esc(p.name)}${n>1?`, set of ${n}`:''}</div><div class="meta">${CATS[g].label} · ${inch(p.w)} W × ${inch(p.d)} D${g==='lamp'?' footprint':''} · ${p.retailer}</div><div class="why">${whyLine(p,g,n)}</div><div class="chips"><span class="chip ok">Fits your room</span><span class="chip">${TIERS[p.tier].label}</span><span class="chip">${STYLES[p.style].name}</span></div></div>
 <div class="pr">${money(price)}${n>1?`<div class="meta">${n} × ${money(p.price)}</div>`:''}</div>
 <div class="acts"><button class="btn small" data-swap="${g}" ${more<1?'disabled':''}>${more<1?'Only size that fits':`Swap (${more} more fit)`}</button><a class="btn small" href="${p.url}" target="_blank" rel="noopener">View at ${p.retailer}</a></div>
 </div>`}).join('')}</div>
@@ -845,7 +883,7 @@ function markDirty(){S.dirty=true;S.forced={}}
 document.addEventListener('click',e=>{
   const g=e.target.closest('[data-go]');if(g){go(+g.dataset.go);return}
   const ty=e.target.closest('[data-type]');if(ty){S.room.type=ty.dataset.type;markDirty();document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('on',b===ty));renderBar();return}
-  const sb=e.target.closest('[data-style]');if(sb){S.styleManual=sb.dataset.style;S.aiWhy='';S.aiMust=[];markDirty();
+  const sb=e.target.closest('[data-style]');if(sb){S.styleManual=sb.dataset.style;S.aiWhy='';S.aiMust=[];S.aiWords=[];S.aiColors=[];markDirty();
     document.querySelectorAll('.style').forEach(b=>b.setAttribute('aria-checked',b===sb));$('#detect').innerHTML=detectLine();$('#tierHint').textContent=tierHint();return}
   const tb=e.target.closest('[data-tier]');if(tb){S.tier=tb.dataset.tier;markDirty();
     document.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('on',b===tb));$('#tierHint').textContent=tierHint();return}
@@ -889,7 +927,7 @@ async function askClaude(text,images){
     const raw=await r.text(),m=raw.match(/\{[\s\S]*\}/);if(!m){AI_ERR='no JSON in reply: '+raw.slice(0,80);return null}
     AI_ERR='bad reply: '+raw.slice(0,80);const j=JSON.parse(m[0]),style=AI_STYLE[String(j.style||'').toLowerCase().trim()];
     if(!style){AI_ERR='unknown style: '+j.style;return null}
-    return{style,tier:AI_TIER[String(j.budget||'').toLowerCase()]||null,why:String(j.reason||'').slice(0,240),must:(Array.isArray(j.mustHave)?j.mustHave:[]).slice(0,6).map(x=>String(x).slice(0,60))};
+    return{style,tier:AI_TIER[String(j.budget||'').toLowerCase()]||null,why:String(j.reason||'').slice(0,240),must:(Array.isArray(j.mustHave)?j.mustHave:[]).slice(0,6).map(x=>String(x).slice(0,60)),words:(Array.isArray(j.words)?j.words:[]).slice(0,8).map(x=>String(x).slice(0,30)),colors:(Array.isArray(j.colors)?j.colors:[]).filter(c=>/^#[0-9a-fA-F]{6}$/.test(c)).slice(0,5)};
   }catch(e){AI_ERR=(e&&e.name||'error')+': '+(e&&e.message||'');return null}finally{clearTimeout(to)}
 }
 async function askAI(){
@@ -901,7 +939,7 @@ async function askAI(){
   btn.disabled=false;
   if(!$('#askAI'))return;
   if(!res){st.textContent='Claude could not be reached ('+(AI_ERR||'unknown')+'), so the built-in word matcher is being used.';return}
-  S.styleManual=res.style;S.aiWhy=res.why||'It fits the words you used.';S.aiMust=res.must;S.aiPics=imgs.length>0;
+  S.styleManual=res.style;S.aiWhy=res.why||'It fits the words you used.';S.aiMust=res.must;S.aiPics=imgs.length>0;S.aiWords=res.words;S.aiColors=res.colors;
   if(res.tier)S.tier=res.tier;
   markDirty();st.textContent='';
   $('#detect').innerHTML=detectLine();
@@ -916,7 +954,7 @@ document.addEventListener('input',e=>{
   const id=e.target.id;
   if(['wft','win','lft','lin'].includes(id)){const v=parseInt(e.target.value,10);if(isNaN(v))return;
     S.room[id]=id.endsWith('in')?clamp(v,0,11):clamp(v,6,40);markDirty();renderPlan();renderBar()}
-  if(id==='vibe'){S.vibeText=e.target.value;S.styleManual=null;S.aiWhy='';S.aiMust=[];S.aiPics=false;markDirty();$('#detect').innerHTML=detectLine();const st=effStyle();
+  if(id==='vibe'){S.vibeText=e.target.value;S.styleManual=null;S.aiWhy='';S.aiMust=[];S.aiPics=false;S.aiWords=[];S.aiColors=[];markDirty();$('#detect').innerHTML=detectLine();const st=effStyle();
     document.querySelectorAll('.style').forEach(b=>b.setAttribute('aria-checked',b.dataset.style===st));$('#tierHint').textContent=tierHint()}
 });
 document.addEventListener('change',e=>{
@@ -986,10 +1024,15 @@ void main(){
   if(uMode==2&&n.y>.5){float row=floor(vW.z/5.5);float u=(vW.x+h(row)*48.)/48.;float b=floor(u);
     c*=.91+.13*h(row*7.13+b*3.31);if(fract(u)<.01||fract(vW.z/5.5)<.035)c*=.8;}
   if(uMode==3&&n.y>.5){c*=.95+.06*h(floor(vW.x/2.)*1.7+floor(vW.z/2.)*9.1);if(fract(vW.x/48.)<.008||fract(vW.z/48.)<.008)c*=.86;}
-  vec3 L=normalize(vec3(-.35,.9,.45));
-  float d=max(dot(n,L),0.),hemi=.5+.5*n.y;
-  float ao=uMode>=2?1.:mix(.8,1.,smoothstep(0.,16.,vW.y));
-  gl_FragColor=vec4(c*(.40+.30*hemi+.44*d)*ao,a);
+  vec3 L=normalize(vec3(-.35,.9,.45)),L2=normalize(vec3(.7,.35,-.55));
+  float d=max(dot(n,L),0.),d2=max(dot(n,L2),0.),hemi=.5+.5*n.y;
+  float ao=uMode>=2?1.:mix(.74,1.,smoothstep(0.,18.,vW.y));
+  vec3 sky=vec3(.50,.53,.60),gnd=vec3(.46,.38,.30);
+  vec3 lit=mix(gnd,sky,hemi)*.62+vec3(1.,.94,.84)*.62*d+vec3(.50,.58,.72)*.16*d2+vec3(.14,.11,.07)*max(-n.y,0.);
+  vec3 col=c*lit*ao;
+  col=col/(1.+.18*col);col=pow(col*1.12,vec3(.93));
+  float lm=dot(col,vec3(.299,.587,.114));col=mix(vec3(lm),col,1.12);
+  gl_FragColor=vec4(col,a);
 }`;
   function sh(t,src){const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s}
   const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,VS));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(pr);gl.useProgram(pr);
