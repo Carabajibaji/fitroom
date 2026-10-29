@@ -1111,7 +1111,7 @@ function looseJSON(raw){const m=raw.match(/\{[\s\S]*\}/);if(m){try{return JSON.p
 async function askClaude(text,images){
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),25000);
   try{
-    const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text+'\n\n(Fitroom can design in these styles. Answer "style" with one of these names exactly: '+Object.values(STYLES).map(s=>s.name).join(', ')+'. Keep the reply short: reason under 25 words, at most 4 mustHave items.)',images:images||[]}),signal:ctl.signal});
+    const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,styles:Object.values(STYLES).map(s=>s.name),images:images||[]}),signal:ctl.signal});
     if(!r.ok){AI_ERR='HTTP '+r.status;return null}
     const raw=await r.text(),j=looseJSON(raw);if(!j){AI_ERR='no JSON in reply: '+raw.slice(0,80);return null}
     const style=AI_STYLE[String(j.style||'').toLowerCase().replace(/[^\p{L}\p{N}\-/ ]/gu,'').trim()];
