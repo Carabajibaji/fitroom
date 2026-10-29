@@ -1435,9 +1435,9 @@ const SC_TEXT={
   load:'Loading the scanner. The first time takes a few seconds.',
   floor:'Point your phone at the floor and move it slowly from side to side, so Fitroom can judge distances.',
   A:'Aim the cross at a corner where two walls meet the floor, then tap Add point (or tap anywhere on the camera view).',
-  B:'Aim at the next corner along the same wall.',
-  C:'Turn and aim at the next corner along the other wall.',
-  done:'Done. Check the numbers, then use them for your room.'};
+  B:'Length: aim at the next corner along the same wall, then tap.',
+  C:'Width: now turn and aim at the corner at the far end of the other wall, then tap.',
+  done:'Done. Check both numbers. If one looks wrong, tap Undo and measure it again.'};
 const scEl=id=>document.getElementById(id);
 function loadScript(src,attrs){return new Promise((res,rej)=>{const t=document.createElement('script');t.src=src;t.async=true;t.crossOrigin='anonymous';
   for(const k in (attrs||{}))t.setAttribute(k,attrs[k]);t.onload=res;t.onerror=()=>rej(new Error(src));document.head.appendChild(t)})}
@@ -1470,7 +1470,9 @@ async function startScan(){
 }
 function sizeScanCanvas(){const c=scEl('scanCv'),d=Math.min(window.devicePixelRatio||1,2);c.width=Math.round(innerWidth*d);c.height=Math.round(innerHeight*d)}
 window.addEventListener('resize',()=>{if(SC.step!=='off')sizeScanCanvas()});
-document.getElementById('scanCv').addEventListener('click',()=>{if(['A','B','C'].includes(SC.step))scanAdd()});
+{const cv=document.getElementById('scanCv');let d0=null;
+  cv.addEventListener('pointerdown',e=>{d0=[e.clientX,e.clientY]});
+  cv.addEventListener('pointerup',e=>{if(d0&&Math.hypot(e.clientX-d0[0],e.clientY-d0[1])<12&&['A','B','C'].includes(SC.step))scanAdd();d0=null})}
 function stopScan(){try{window.XR8&&window.XR8.stop()}catch(e){}
   SC.objs.forEach(o=>o.parent&&o.parent.remove(o));SC.objs=[];SC.reticle=null;SC.live=null;
   SC.step='off';scEl('scan').hidden=true;document.body.style.overflow=''}
@@ -1505,7 +1507,12 @@ function scanAim(){const T=window.THREE;if(!SC.cam||!SC.reticle)return;
   if(p&&last&&SC.step!=='A'){placeSeg(SC.live,last.p,p);const v=ftin(hdist(last.p,p));if(scEl('scanLive').textContent!==v)scEl('scanLive').textContent=v;scEl('scanLive').hidden=false}
   else{if(SC.live)SC.live.visible=false;scEl('scanLive').hidden=true}
   if(had!==!!p)scanBtnState()}
-function scanAdd(){const p=SC.aim;if(!p){scEl('scanWarn').textContent='Fitroom can\'t see the floor at the cross yet. Tilt the phone down a little and move slowly.';return}scEl('scanWarn').textContent='';const P=p.clone();try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}
+function scanAdd(){const p=SC.aim;if(!p){scEl('scanWarn').textContent='Fitroom can\'t see the floor at the cross yet. Tilt the phone down a little and move slowly.';return}scEl('scanWarn').textContent='';
+  /* ignore double taps and points on top of the last one (that was filling in the width by itself) */
+  const prev=SC.pts[SC.pts.length-1],now=performance.now();
+  if(now-(SC.lastAdd||0)<900)return;
+  if(prev&&hdist(prev.p,p)<.6){scEl('scanWarn').textContent='That point is right on top of the last one. Turn to the next corner, then tap.';return}
+  SC.lastAdd=now;SC.sm=null;SC.seen=0;const P=p.clone();try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}
   const last=SC.pts[SC.pts.length-1],mk={p:P,objs:[dot(P)]};
   if(last){const s=seg(0xF2C14E);placeSeg(s,last.p,P);mk.objs.push(s)}
   SC.pts.push(mk);
