@@ -134,6 +134,9 @@ a.btn{text-decoration:none;color:inherit}
 .style b{display:block;font-weight:700;font-size:15px;margin-top:8px}
 .style small{display:block;color:var(--muted);font-size:12.5px;line-height:1.35}
 .sw5{display:flex;height:16px;border-radius:4px;overflow:hidden}
+.famtabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.famtabs button{flex:none;border:1px solid var(--line);background:var(--surface);color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.famtabs button[aria-selected="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .sw5 span{flex:1}
 .thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .thumbs img{width:58px;height:58px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
@@ -307,37 +310,19 @@ input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px s
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <dialog id="dlg"><div id="dlgBody"></div><form method="dialog"><button class="btn">Close</button></form></dialog>
 
+<script src="styles.js"></script>
 <script>
 /* ---------- Data ---------- */
 const WALLN={N:'top',S:'bottom',W:'left',E:'right'};
 const OPP={N:'S',S:'N',W:'E',E:'W'};
-const STYLES={
-  japandi:{name:'Japandi',blurb:'Calm, natural wood, soft neutrals',mult:1.05,
-    pal:{wood:'#C9A77C',fabric:'#D9D2C5',accent:'#8C9A7E',soft:'#E6DFD2',dark:'#3E3B37'},
-    names:['Kumo','Hana','Sora','Mori','Ren','Aki','Yuki','Nami'],
-    keys:['calm','minimal','minimalist','zen','japanese','scandi','scandinavian','natural','wood','neutral','simple','clean','serene','light wood','quiet','peaceful','nothing too busy'],
-    tips:['Keep walls a soft warm white and let the wood grain do the talking.','Use paper or linen lamp shades for a low, even glow in the evening.','Limit decor to a few handmade pieces and leave surfaces clear.']},
-  midcentury:{name:'Mid-century',blurb:'Walnut, tapered legs, bold color',mult:1.1,
-    pal:{wood:'#8A5A3B',fabric:'#2F6B6E',accent:'#D39B2A',soft:'#E3D4B6',dark:'#3A2E28'},
-    names:['Harlow','Palmer','Dex','Monroe','Stanley','Arlo','Vance','Joni'],
-    keys:['retro','mid-century','midcentury','60s','70s','vintage','walnut','mustard','teal','mad men','classic','sixties','atomic'],
-    tips:['Pair walnut tones with one bold color, like mustard or teal.','Tapered legs keep a room feeling light, so repeat them across pieces.','A sunburst mirror or graphic print makes an easy focal point.']},
-  coastal:{name:'Coastal',blurb:'Airy, light, sea-glass blues',mult:1,
-    pal:{wood:'#C8B89A',fabric:'#E8E6DF',accent:'#5E8DB0',soft:'#D5E2EA',dark:'#5B6B78'},
-    names:['Harbor','Dune','Tidal','Marin','Cove','Breeze','Shoal','Pier'],
-    keys:['beach','beachy','ocean','coastal','airy','bright','blue','white','breezy','hamptons','seaside','light','fresh','summer','sunny'],
-    tips:['Paint walls crisp white or pale gray-blue to bounce daylight around.','Mix textures: linen slipcovers, a jute rug, light woven baskets.','Keep curtains sheer so the room fills with natural light.']},
-  industrial:{name:'Industrial',blurb:'Metal, leather, raw textures',mult:1,
-    pal:{wood:'#6B4E3A',fabric:'#8E4F2A',accent:'#5C6670',soft:'#B9B6AF',dark:'#2A2B2D'},
-    names:['Foundry','Rivet','Forge','Mill','Anvil','Grid','Bolt','Depot'],
-    keys:['loft','industrial','metal','leather','urban','brick','concrete','dark','moody','steel','black','edgy','city'],
-    tips:['Leave some metal and wood raw; a little wear adds character.','Warm up dark finishes with leather and warm-white bulbs.','Open shelving shows off books and plants and keeps things airy.']},
-  boho:{name:'Boho',blurb:'Plants, rattan, warm layers',mult:.95,
-    pal:{wood:'#BE9460',fabric:'#E3D5BD',accent:'#B35A36',soft:'#D9B98F',dark:'#5A4632'},
-    names:['Juniper','Fern','Saffron','Willow','Luna','Terra','Sage','Indigo'],
-    keys:['boho','bohemian','plants','plant','rattan','eclectic','colorful','warm','pattern','patterns','cozy','terracotta','earthy','layered','macrame','jungle'],
-    tips:['Layer rugs, throws and cushions in warm, earthy patterns.','Group plants at different heights for a lush, full look.','Mix rattan, wood and ceramic; nothing needs to match perfectly.']}
-};
+const RENDER={j:'japandi',m:'midcentury',c:'coastal',i:'industrial',b:'boho'};
+const STYLES={};
+for(const [id,name,fam,blurb,r,pal,room,keys,want,tips] of STYLE_DEFS){
+  STYLES[id]={name,fam,blurb,r:RENDER[r],pal:{wood:pal[0],fabric:pal[1],accent:pal[2],soft:pal[3],dark:pal[4]},
+    room:{floor:room[0],wall:room[1],mode:room[2]},keys:keys.split('|'),want:parseWant(want),tips}}
+const FAMNAME=Object.fromEntries(FAMILIES);
+/* A product "matches" a style when its trait score reaches this */
+const STYLE_OK=3;
 const CATS={
   sofa:{label:'Sofa',color:'fabric'},
   rug:{label:'Area rug',color:'soft'},
@@ -372,7 +357,7 @@ const TESTFLIGHT_URL='';
 const SITE_URL='';
 
 /* Real products from several US stores. Sizes and prices as listed on each store's site, Sep 25, 2026. */
-const SRC_DATE='Sep 25, 2026';
+const SRC_DATE='Sep 25 and Oct 28, 2026';
 /* IKEA rows: [category, name, width in, depth in, price USD, style, ikea.com/us/en/p/ slug, tag] */
 const IKEA=[
 ["sofa","GLOSTAD loveseat, Knisa dark gray",47.625,30.75,169,"i","glostad-loveseat-knisa-dark-gray-70489011"],
@@ -530,8 +515,16 @@ const OTHER=[
 
 const STY={j:'japandi',m:'midcentury',c:'coastal',i:'industrial',b:'boho'};
 const PRODUCTS=(()=>{
-  const rows=[...IKEA.map(r=>[r[0],r[1],r[2],r[3],r[4],r[5],'https://www.ikea.com/us/en/p/'+r[6]+'/',r[7]||null,'IKEA']),...OTHER];
-  const out=rows.map((r,n)=>({id:'p'+n,cat:r[0],name:r[1],w:r[2],d:r[3],price:r[4],style:STY[r[5]],url:r[6],tag:r[7]||null,retailer:r[8]}));
+  const rows=[...IKEA.map(r=>[r[0],r[1],r[2],r[3],r[4],r[5],'https://www.ikea.com/us/en/p/'+r[6]+'/',r[7]||null,'IKEA']),...OTHER,
+    ...NEW_ROWS.map(r=>[r[0],r[1],r[2],r[3],r[4],null,r[5],r[6]||null,r[7],r[8]])];
+  const out=rows.map((r,n)=>{
+    const oldX=Object.entries(OLD_EXTRA).filter(([k])=>r[1].startsWith(k)).map(([,v])=>v).join(' ');
+    const p={id:'p'+n,cat:r[0],name:r[1],w:r[2],d:r[3],price:r[4],url:r[6],tag:r[7]||null,retailer:r[8],isNew:!r[5],
+      traits:traitsFor(r[1],r[0],[r[9]||'',oldX].join(' '),r[5])};
+    p.sc={};for(const [k,s] of Object.entries(STYLES)){let v=0;for(const t of p.traits)if(s.want[t])v+=s.want[t];p.sc[k]=v}
+    /* look = best-fitting style (its palette colors the piece); style = one of the 5 render families (legs, rug pattern) */
+    p.look=r[5]?STY[r[5]]:Object.keys(p.sc).reduce((a,b)=>p.sc[b]>p.sc[a]?b:a);
+    p.style=STYLES[p.look].r;return p});
   /* Budget tier = price third within each category, across all stores */
   const by={};out.forEach(p=>(by[p.cat]=by[p.cat]||[]).push(p));
   for(const l of Object.values(by)){l.sort((a,b)=>a.price-b.price);l.forEach((p,i)=>{const q=i/l.length;p.tier=q<1/3?'value':q<2/3?'mid':'premium'})}
@@ -556,13 +549,28 @@ const hit=(a,b)=>a.x<b.x+b.w-0.01&&b.x<a.x+a.w-0.01&&a.y<b.y+b.h-0.01&&b.y<a.y+a
 function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;
   const f=v=>clamp(Math.round(v+(amt<0?v:255-v)*amt),0,255);return '#'+[f(r),f(g),f(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function lum(hex){const n=parseInt(hex.slice(1),16);return(0.299*(n>>16)+0.587*(n>>8&255)+0.114*(n&255))/255}
-function colorFor(p){const k=CATS[p.cat].color;return k==='plant'?'#6F8F5A':STYLES[p.style].pal[k]}
-function detect(text){const t=' '+text.toLowerCase().replace(/[^a-z0-9\- ]/g,' ').replace(/\s+/g,' ')+' ';let best=null,bm=[];
-  for(const [k,s] of Object.entries(STYLES)){const m=s.keys.filter(w=>t.includes(' '+w+' '));if(m.length>bm.length){best=k;bm=m}}
+/* Color named in the listing (e.g. "Noah velvet accent chair, pink"), else the style palette */
+const NAME_COLORS=[['hot pink','#D2457E'],['light brown-pink','#C9A49A'],['pale pink','#E9C9C8'],['dusty pink','#D8A7A8'],['pink','#E3AEB6'],['blush','#E8C1BE'],['rose','#D9A0A6'],
+  ['mint green','#A8D5C2'],['spearmint aqua','#7FC8C0'],['yarrow gold','#C9962E'],['bright yellow','#E5B92E'],['orange spice','#C8642E'],['rust','#A4532F'],['amber','#B9772F'],
+  ['fir green','#2F4A3B'],['forest green','#2E4A36'],['dark green','#2F4B3A'],['light green','#A9B98F'],['sage','#9DAA8C'],['vissle green','#5A7A55'],['hemlock green','#4F6B4E'],['thistle green','#7E8C6A'],['green','#5F7A5A'],
+  ['hale ink','#2A3346'],['navy','#2E3B55'],['dark blue','#2C3A5A'],['sky blue','#8FB1CF'],['blue','#4C6A92'],['cream white','#EEE8DC'],['cream','#E6DDCB'],['ivory','#ECE6DA'],['white','#EFEDE8'],
+  ['beige','#D6C8B2'],['rawhide tan','#A5683A'],['charme tan','#9C6236'],['tan','#A8703F'],['dark brown','#3D2B22'],['brown','#6B4A33'],['gray','#8E8F8E'],['black','#232325'],['multicolor','#C77B5A']];
+function nameColor(p){const n=(p.name.split(',').slice(1).join(',')||p.name).toLowerCase();for(const [w,h] of NAME_COLORS)if(n.includes(w))return h;return null}
+function colorFor(p){const k=CATS[p.cat].color;if(k==='plant')return'#6F8F5A';const pal=STYLES[p.look].pal;
+  if(p.isNew&&(k==='fabric'||k==='accent'||k==='soft'||p.cat==='rug'||p.cat==='bed'))return nameColor(p)||pal[k];return pal[k]}
+/* Style from the user's words: every style has trigger words; longer phrases and the style's own name count more */
+const norm=t=>' '+String(t).toLowerCase().replace(/[^\p{L}\p{N}\- ]/gu,' ').replace(/\s+/g,' ')+' ';
+function detect(text){const t=norm(text);let best=null,bs=0,bm=[];
+  for(const [k,s] of Object.entries(STYLES)){const m=s.keys.filter(w=>t.includes(' '+w+' '));
+    let sc=m.reduce((a,w)=>a+(w.includes(' ')?2:1),0);if(t.includes(' '+s.name.toLowerCase()+' ')&&!m.includes(s.name.toLowerCase()))sc+=2;
+    if(sc>bs){best=k;bs=sc;bm=m}}
   return{style:best,matches:bm}}
+/* Colors and materials asked for in the words (e.g. "creamy pink" -> cream, pink) */
+function wantedColors(){const t=norm(S.vibeText+' '+(S.aiWords||[]).join(' '));return[...new Set(COLOR_WORDS.filter(([w])=>t.includes(' '+w+' ')).map(([,v])=>v))]}
+function fitScore(p,style,cols){let v=p.sc[style]||0;for(const c of cols)if(p.traits.has(c))v+=3;return v}
 const effStyle=()=>S.styleManual||detect(S.vibeText).style||S.photoStyle||'japandi';
 function doorRect(wall,W,L){const a=12,s=34;return{N:{x:a,y:0,w:s,h:s},S:{x:a,y:L-s,w:s,h:s},W:{x:0,y:a,w:s,h:s},E:{x:W-s,y:a,w:s,h:s}}[wall]}
-function typicalRoom(style,tier){let t=0;for(const c of RT().show){const l=PRODUCTS.filter(p=>p.cat===c&&p.tier===tier),ls=l.filter(p=>p.style===style),a=(ls.length?ls:l).slice().sort((x,y)=>x.price-y.price);if(a.length)t+=a[Math.floor((a.length-1)/2)].price*(TYPICAL_QTY[c]||1)}return Math.round(t)}
+function typicalRoom(style,tier){let t=0;for(const c of RT().show){const l=PRODUCTS.filter(p=>p.cat===c&&p.tier===tier),ls=l.filter(p=>p.sc[style]>=STYLE_OK),a=(ls.length?ls:l).slice().sort((x,y)=>x.price-y.price);if(a.length)t+=a[Math.floor((a.length-1)/2)].price*(TYPICAL_QTY[c]||1)}return Math.round(t)}
 const grpKeys=g=>Object.keys(S.layout.items).filter(k=>S.layout.items[k].grp===g);
 
 /* ---------- Layout engine ---------- */
@@ -595,16 +603,17 @@ function makeLayout(){
     night:p=>-p.w,
     def:p=>p.w*p.d};
   const used={},sizeFirst={sofa:1,tv:1,bed:1,night:1,rug:1};
-  const pool=cat=>{const sc=score[cat]||score.def,u=p=>used[p.retailer]||0,fit=p=>(p.style===style?0:1)+(u(p)>=2?.6*(u(p)-1):0);
+  const cols=wantedColors(),TI={value:0,mid:1,premium:2};
+  const pool=cat=>{const sc=score[cat]||score.def,u=p=>used[p.retailer]||0,fit=p=>Math.round(2*(-fitScore(p,style,cols)/3+1.5*Math.abs(TI[p.tier]-TI[S.tier])+(u(p)>=2?.6*(u(p)-1):0)))/2;
     return PRODUCTS.filter(p=>p.cat===cat)
-      .sort((a,b)=>((b.tier===S.tier)-(a.tier===S.tier))||(fit(a)-fit(b))||
+      .sort((a,b)=>(fit(a)-fit(b))||
         (sizeFirst[cat]?(sc(b)-sc(a))||(u(a)-u(b)):(u(a)-u(b))||(sc(b)-sc(a)))||a.price-b.price)};
   function place(cat,fn){
     const list=pool(cat),opts=[];
     for(const p of list){const r=fn(p);if(r)opts.push({p,r})}
     const c=opts.find(o=>o.p.id===S.forced[cat])||opts[0]||null;
     options[cat]=opts.map(o=>o.p.id);
-    hidden[cat]=list.filter(p=>p.style===style&&p.tier===S.tier&&!opts.some(o=>o.p.id===p.id)).length;
+    hidden[cat]=list.filter(p=>p.sc[style]>=STYLE_OK&&p.tier===S.tier&&!opts.some(o=>o.p.id===p.id)).length;
     if(!c){skipped.push(cat);return}
     used[c.p.retailer]=(used[c.p.retailer]||0)+1;
     const parts=c.r.parts||[c.r];
@@ -742,7 +751,7 @@ function itemSVG(key,it,fs,state){
         else s+=`<line x1="${x}" y1="${y+h*i/seats}" x2="${x+w}" y2="${y+h*i/seats}" stroke="${dk}" stroke-width=".6"/>`}}
     s+=outline(3);
   }else if(cat==='bed'){
-    s+=rect(x,y,w,h,col,3);s+=backStrip(5,STYLES[it.p.style].pal.wood);
+    s+=rect(x,y,w,h,col,3);s+=backStrip(5,STYLES[it.p.look].pal.wood);
     const two=(hz?w:h)>=54,pl=hz?w:h,pw=two?pl*.4:pl*.7,gap=two?pl*.07:pl*.15;
     for(let i=0;i<(two?2:1);i++){const off=gap+i*(pw+pl-2*gap-2*pw);
       if(hz)s+=rect(x+off,b==='N'?y+8:y+h-8-12,pw,12,'#FFFFFF',3,'fill-opacity=".85"');
@@ -834,19 +843,26 @@ function detectLine(){
   if(S.styleManual&&S.aiWhy)return`Claude read your ${S.aiPics?'words and photos':'words'} as <b>${STYLES[S.styleManual].name}</b>: ${esc(S.aiWhy)}`+(S.aiWords.length?`<br>Words it noticed: ${S.aiWords.map(esc).join(', ')}.`:'')+(S.aiColors.length?`<br>Colors it saw: ${S.aiColors.map(c=>`<span title="${c}" style="display:inline-block;width:22px;height:22px;border-radius:6px;vertical-align:middle;margin-right:4px;border:1px solid rgba(0,0,0,.15);background:${c}"></span>`).join('')}`:'')+(S.aiMust.length?`<br>Pieces it suggests: ${S.aiMust.map(esc).join(', ')}.`:'');
   if(S.styleManual)return`You picked <b>${STYLES[S.styleManual].name}</b>.`;
   const d=detect(S.vibeText),ph=S.photoStyle?`Your photos read as <b>${STYLES[S.photoStyle].name}</b>: ${esc(S.photoWhy)}.`:'';
-  if(d.style)return`Sounds like <b>${STYLES[d.style].name}</b>, from “${d.matches.map(esc).join('”, “')}”.`+(ph?(S.photoStyle===d.style?' Your photos agree.':` ${ph} Your words take priority.`):'');
+  const cl=wantedColors(),cs=cl.length?` Pieces in ${cl.join(', ')} get priority.`:'';
+  if(d.style)return`Sounds like <b>${STYLES[d.style].name}</b>, from “${d.matches.map(esc).join('”, “')}”.${cs}`+(ph?(S.photoStyle===d.style?' Your photos agree.':` ${ph} Your words take priority.`):'');
   if(ph)return ph;
-  if(S.vibeText.trim())return`No style words recognized yet. Try words like cozy, minimal, retro or beachy.`;
+  if(S.vibeText.trim())return`No style words recognized yet. Try words like cozy, minimal, retro, beachy, cute pink, cottage or art deco.`;
   return`Describe it above or pick a style below.`}
+/* Style picker: 61 styles in 5 families. The family of the current style opens first. */
+function styleBox(){const st=effStyle();if(!S.fam||(S.famAuto!==false&&STYLES[st].fam!==S.fam))S.fam=STYLES[st].fam;
+  return`<div class="famtabs" role="tablist" aria-label="Style families">${FAMILIES.map(([f,l])=>`<button type="button" role="tab" aria-selected="${f===S.fam}" data-fam="${f}">${l}</button>`).join('')}</div>
+<div class="styles" role="radiogroup" aria-label="Style">${Object.entries(STYLES).filter(([,s])=>s.fam===S.fam).map(([k,s])=>`
+<button type="button" class="style" role="radio" aria-checked="${k===st}" data-style="${k}"><span class="sw5">${Object.values(s.pal).map(c=>`<span style="background:${c}"></span>`).join('')}</span><b>${s.name}</b><small>${s.blurb}</small></button>`).join('')}</div>`}
+function famScroll(){const t=document.querySelector('.famtabs [aria-selected="true"]');if(t)t.parentNode.scrollLeft=t.offsetLeft-t.parentNode.offsetLeft-12}
+function refreshStyles(){S.famAuto=true;const b=$('#styleBox');if(b){b.innerHTML=styleBox();famScroll()}}
 const tierHint=()=>`A fully furnished ${RT().noun} runs about ${money(typicalRoom(effStyle(),S.tier))} at this level.`;
-function p2(){const st=effStyle();return`
+function p2(){const st=effStyle();setTimeout(famScroll,0);return`
 <h1>Describe the vibe</h1>
 <p class="lede">Use your own words, pick a style, or add photos of rooms you love.</p>
 <label class="field"><span class="lbl">In your words</span><textarea id="vibe" rows="3" placeholder="Warm and calm, lots of natural wood, nothing too busy">${esc(S.vibeText)}</textarea></label>
 <div class="field"><button type="button" class="btn small" id="askAI">${S.photos.length?'Ask Claude to read my words and photos':'Ask Claude to read my words'}</button> <span class="hint" id="aiStatus"></span></div>
 <p class="detect" id="detect">${detectLine()}</p>
-<div class="styles" role="radiogroup" aria-label="Style">${Object.entries(STYLES).map(([k,s])=>`
-<button type="button" class="style" role="radio" aria-checked="${k===st}" data-style="${k}"><span class="sw5">${Object.values(s.pal).map(c=>`<span style="background:${c}"></span>`).join('')}</span><b>${s.name}</b><small>${s.blurb}</small></button>`).join('')}</div>
+<div id="styleBox">${styleBox()}</div>
 <div class="field"><span class="lbl">Inspiration photos</span>
 <label class="btn small"><input type="file" accept="image/*" multiple id="pics" hidden>${S.photos.length?'Add more photos':'Add photos'}</label>${S.photos.length?' <button type="button" class="btn small" id="clearPics">Remove photos</button>':''}
 <div class="thumbs">${S.photos.map(p=>`<img src="${p}" alt="Inspiration photo">`).join('')}</div>
@@ -880,7 +896,7 @@ function icon(cat,col){
   };
   return`<svg viewBox="0 0 68 68" aria-hidden="true">${g[cat]||R(14,18,40,32,4)}</svg>`}
 function whyLine(p,g,n){
-  const st=STYLES[p.style].name,match=p.style===S.layout.style;
+  const st=STYLES[p.look].name,match=p.sc[S.layout.style]>=STYLE_OK;
   const a=match?`Matches your <b>${STYLES[S.layout.style].name}</b> style`:`Closest <b>${CATS[g].label.toLowerCase()}</b> that fits (${st} style)`;
   return`${a}, ${TIERS[p.tier].label.toLowerCase()} budget${n>1?`, ${n} for your room`:''}.`}
 
@@ -996,7 +1012,7 @@ function p3(){const L=S.layout,st=STYLES[L.style],noun=ROOMS[L.type].noun;
 <div class="row${selG?' sel':''}${S.skip.has(g)?' off':''}" data-row="${g}">
 <input type="checkbox" class="ck" data-ck="${g}" ${S.skip.has(g)?'':'checked'} aria-label="Buy ${esc(p.name)}">
 <div class="tile${PHOTOS[p.url]?' ph':''}" style="background:linear-gradient(160deg,${shade(colorFor(p),.82)},${shade(colorFor(p),.62)})">${PHOTOS[p.url]?`<img class="pimg" src="${PHOTOS[p.url]}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'">`:icon(g,colorFor(p))}</div>
-<div><div class="nm">${esc(p.name)}${n>1?`, set of ${n}`:''}</div><div class="meta">${CATS[g].label} · ${inch(p.w)} W × ${inch(p.d)} D${g==='lamp'?' footprint':''} · ${p.retailer}</div><div class="why">${whyLine(p,g,n)}</div><div class="chips"><span class="chip ok">Fits your room</span><span class="chip">${TIERS[p.tier].label}</span><span class="chip">${STYLES[p.style].name}</span>${PHOTOS[p.url]?`<span class="chip">Photo: ${p.retailer}</span>`:''}</div></div>
+<div><div class="nm">${esc(p.name)}${n>1?`, set of ${n}`:''}</div><div class="meta">${CATS[g].label} · ${inch(p.w)} W × ${inch(p.d)} D${g==='lamp'?' footprint':''} · ${p.retailer}</div><div class="why">${whyLine(p,g,n)}</div><div class="chips"><span class="chip ok">Fits your room</span><span class="chip">${TIERS[p.tier].label}</span><span class="chip">${STYLES[p.look].name}</span>${PHOTOS[p.url]?`<span class="chip">Photo: ${p.retailer}</span>`:''}</div></div>
 <div class="pr">${money(price)}${n>1?`<div class="meta">${n} × ${money(p.price)}</div>`:''}</div>
 <div class="acts"><button class="btn small" data-swap="${g}" ${more<1?'disabled':''}>${more<1?'Only size that fits':`Swap (${more} more fit)`}</button><a class="btn small" href="${p.url}" target="_blank" rel="noopener">View at ${p.retailer}</a></div>
 </div>`}).join('')}</div>
@@ -1040,7 +1056,8 @@ function markDirty(){S.dirty=true;S.forced={}}
 document.addEventListener('click',e=>{
   const g=e.target.closest('[data-go]');if(g){go(+g.dataset.go);return}
   const ty=e.target.closest('[data-type]');if(ty){S.room.type=ty.dataset.type;markDirty();document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('on',b===ty));renderBar();return}
-  const sb=e.target.closest('[data-style]');if(sb){S.styleManual=sb.dataset.style;S.aiWhy='';S.aiMust=[];S.aiWords=[];S.aiColors=[];markDirty();
+  const fb=e.target.closest('[data-fam]');if(fb){S.fam=fb.dataset.fam;S.famAuto=false;$('#styleBox').innerHTML=styleBox();famScroll();return}
+  const sb=e.target.closest('[data-style]');if(sb){S.styleManual=sb.dataset.style;S.famAuto=false;S.aiWhy='';S.aiMust=[];S.aiWords=[];S.aiColors=[];markDirty();
     document.querySelectorAll('.style').forEach(b=>b.setAttribute('aria-checked',b===sb));$('#detect').innerHTML=detectLine();$('#tierHint').textContent=tierHint();return}
   const tb=e.target.closest('[data-tier]');if(tb){S.tier=tb.dataset.tier;markDirty();
     document.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('on',b===tb));$('#tierHint').textContent=tierHint();return}
@@ -1075,17 +1092,18 @@ document.addEventListener('click',e=>{
 
 /* ---------- Claude (via Cloudflare Worker; the API key never lives in this file) ---------- */
 const AI_URL='https://fitroom-ai.caraxieyx.workers.dev';
-const AI_STYLE={'japandi':'japandi','mid-century':'midcentury','midcentury':'midcentury','mid century':'midcentury','coastal':'coastal','industrial':'industrial','boho':'boho'};
+const AI_STYLE=(()=>{const m={'mid-century':'midcentury','mid century':'midcentury','boho':'boho','scandinavian':'scandi','coastal':'coastal','industrial':'industrial','japandi':'japandi','cottagecore':'cottage','pink':'softpink'};
+  for(const [k,s] of Object.entries(STYLES)){m[k]=k;m[s.name.toLowerCase()]=k}return m})();
 let AI_ERR='';
 const AI_TIER={low:'value',mid:'mid',high:'premium'};
 function shrinkPhoto(src){return new Promise(res=>{const im=new Image();im.onload=()=>{const m=768,k=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));c.getContext('2d').drawImage(im,0,0,c.width,c.height);try{res(c.toDataURL('image/jpeg',.8).split(',')[1])}catch(e){res(null)}};im.onerror=()=>res(null);im.src=src})}
 async function askClaude(text,images){
   const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),25000);
   try{
-    const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,images:images||[]}),signal:ctl.signal});
+    const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text+'\n\n(Fitroom can design in these styles. Answer "style" with one of these names exactly: '+Object.values(STYLES).map(s=>s.name).join(', ')+'.)',images:images||[]}),signal:ctl.signal});
     if(!r.ok){AI_ERR='HTTP '+r.status;return null}
     const raw=await r.text(),m=raw.match(/\{[\s\S]*\}/);if(!m){AI_ERR='no JSON in reply: '+raw.slice(0,80);return null}
-    AI_ERR='bad reply: '+raw.slice(0,80);const j=JSON.parse(m[0]),style=AI_STYLE[String(j.style||'').toLowerCase().trim()];
+    AI_ERR='bad reply: '+raw.slice(0,80);const j=JSON.parse(m[0]),style=AI_STYLE[String(j.style||'').toLowerCase().replace(/[^\p{L}\p{N}\-/ ]/gu,'').trim()];
     if(!style){AI_ERR='unknown style: '+j.style;return null}
     return{style,tier:AI_TIER[String(j.budget||'').toLowerCase()]||null,why:String(j.reason||'').slice(0,240),must:(Array.isArray(j.mustHave)?j.mustHave:[]).slice(0,6).map(x=>String(x).slice(0,60)),words:(Array.isArray(j.words)?j.words:[]).slice(0,8).map(x=>String(x).slice(0,30)),colors:(Array.isArray(j.colors)?j.colors:[]).filter(c=>/^#[0-9a-fA-F]{6}$/.test(c)).slice(0,5)};
   }catch(e){AI_ERR=(e&&e.name||'error')+': '+(e&&e.message||'');return null}finally{clearTimeout(to)}
@@ -1103,7 +1121,7 @@ async function askAI(){
   if(res.tier)S.tier=res.tier;
   markDirty();st.textContent='';
   $('#detect').innerHTML=detectLine();
-  document.querySelectorAll('.style').forEach(b=>b.setAttribute('aria-checked',b.dataset.style===res.style));
+  refreshStyles();
   document.querySelectorAll('[data-tier]').forEach(b=>b.classList.toggle('on',b.dataset.tier===S.tier));
   $('#tierHint').textContent=tierHint();
 }
@@ -1114,8 +1132,7 @@ document.addEventListener('input',e=>{
   const id=e.target.id;
   if(['wft','win','lft','lin'].includes(id)){const v=parseInt(e.target.value,10);if(isNaN(v))return;
     S.room[id]=id.endsWith('in')?clamp(v,0,11):clamp(v,6,40);markDirty();renderPlan();renderBar()}
-  if(id==='vibe'){S.vibeText=e.target.value;S.styleManual=null;S.aiWhy='';S.aiMust=[];S.aiPics=false;S.aiWords=[];S.aiColors=[];markDirty();$('#detect').innerHTML=detectLine();const st=effStyle();
-    document.querySelectorAll('.style').forEach(b=>b.setAttribute('aria-checked',b.dataset.style===st));$('#tierHint').textContent=tierHint()}
+  if(id==='vibe'){S.vibeText=e.target.value;S.styleManual=null;S.aiWhy='';S.aiMust=[];S.aiPics=false;S.aiWords=[];S.aiColors=[];markDirty();$('#detect').innerHTML=detectLine();refreshStyles();$('#tierHint').textContent=tierHint()}
 });
 document.addEventListener('change',e=>{
   const id=e.target.id;
@@ -1158,8 +1175,7 @@ svg.addEventListener('focusin',e=>{const g=e.target.closest&&e.target.closest('.
 
 /* ---------- 3D room (plain WebGL, no outside libraries) ---------- */
 const HGT={sofa:33,armchair:32,dchair:33,bed:44,coffee:17,tv:26,rug:.5,side:23,lamp:62,shelf:70,plant:42,night:24,dresser:34,bench:18,dtable:30,sideboard:32,barcart:34};
-const ROOMLOOK={japandi:{floor:'#D5BF9C',wall:'#EEE9E0',mode:2},midcentury:{floor:'#B98B63',wall:'#ECE4D5',mode:2},coastal:{floor:'#E2D6C1',wall:'#F3F5F4',mode:2},
-  industrial:{floor:'#A6A39D',wall:'#C9C3BA',mode:3},boho:{floor:'#C8A57A',wall:'#F0E4D3',mode:2}};
+const ROOMLOOK=Object.fromEntries(Object.entries(STYLES).map(([k,v])=>[k,v.room]));
 const G3=(()=>{
   const cv=$('#c3'),wrap=$('#v3');let gl=null;
   try{gl=cv.getContext('webgl',{antialias:true,alpha:true,premultipliedAlpha:true})||cv.getContext('experimental-webgl')}catch(e){}
@@ -1267,7 +1283,7 @@ void main(){
   function buildItem(k,it,sel,bad){
     const p=it.p,cat=it.grp,r=it.r,th={N:0,S:Math.PI,W:Math.PI/2,E:-Math.PI/2}[it.back]||0,side=Math.abs(Math.sin(th))>.5;
     const w=side?r.h:r.w,d=side?r.w:r.h,ghost=S.skip.has(cat),T={cx:r.x+r.w/2,cz:r.y+r.h/2,th,op:ghost?.26:1};
-    const pal=STYLES[p.style].pal,base=colorFor(p),dk=shade(base,-.22),wood=pal.wood,dark=pal.dark;
+    const pal=STYLES[p.look].pal,base=colorFor(p),dk=shade(base,-.22),wood=pal.wood,dark=pal.dark;
     const B=(x,y,z,sx,sy,sz,c)=>add('box',T,x,y,z,sx,sy,sz,c),C=(x,y,z,sx,sy,sz,c,g='cyl')=>add(g,T,x,y,z,sx,sy,sz,c);
     const legs=(h,ins,rad,c)=>{for(const a of[-1,1])for(const b of[-1,1])C(a*(w/2-ins),0,b*(d/2-ins),rad*2,h,rad*2,c)};
     const round=cat==='lamp'||cat==='plant'||(p.tag==='round'&&cat!=='bed');
@@ -1402,7 +1418,7 @@ void main(){
 function readPhoto(src){return new Promise(res=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),n=48;c.width=c.height=n;const x=c.getContext('2d');x.drawImage(im,0,0,n,n);let d;
   try{d=x.getImageData(0,0,n,n).data}catch(e){return res(null)}
   const sc={},st={L:0,S:0,warm:0,green:0,blue:0,n:0};for(const k in STYLES)sc[k]=0;
-  const pals=Object.entries(STYLES).flatMap(([k,s])=>Object.values(s.pal).map(h=>[k,parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]));
+  const pals=Object.entries(STYLES).filter(([k])=>['japandi','midcentury','coastal','industrial','boho','softpink'].includes(k)).flatMap(([k,s])=>Object.values(s.pal).map(h=>[k,parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]));
   for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/510,s=mx===mn?0:(mx-mn)/(255-Math.abs(mx+mn-255));
     st.L+=l;st.S+=s;st.n++;if(r>b+18)st.warm++;if(g>r+8&&g>b+4&&s>.15)st.green++;if(b>r+14&&s>.12)st.blue++;
     let best=null,bd=1e9;for(const [k,R2,G2,B2] of pals){const dd=(r-R2)**2+(g-G2)**2+(b-B2)**2;if(dd<bd){bd=dd;best=k}}if(bd<3600)sc[best]++}
@@ -1413,7 +1429,7 @@ async function analyzePhotos(){const rs=(await Promise.all(S.photos.map(readPhot
   L/=n;Sa/=n;wa/=n;gr/=n;bl/=n;const m=rs.length;
   t.coastal+=m*(bl*2.2+(L>.68&&wa<.5?.25:0));t.boho+=m*(gr*2.2+(wa>.55&&Sa>.3?.2:0));t.industrial+=m*((L<.36?.35:0)+(Sa<.12&&L<.55?.15:0));
   t.japandi+=m*((L>.55&&Sa<.28&&wa>.4)?.3:0);t.midcentury+=m*((Sa>.38&&wa>.45)?.3:0);
-  S.photoStyle=Object.keys(t).sort((a,b)=>t[b]-t[a])[0];
+  const ks=Object.keys(t).sort((a,b)=>t[b]-t[a]);S.photoStyle=t[ks[0]]>0?ks[0]:null;
   const extra=gr>.12?', with lots of greenery':Sa>.4?', with bold color':Sa<.15?', with soft, muted color':'';
   S.photoWhy=`mostly ${L>.66?'light':L<.38?'dark':'mid-tone'}, ${wa>.55?'warm':bl>.12?'cool':'neutral'} tones${extra}`}
 

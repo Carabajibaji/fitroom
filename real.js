@@ -435,19 +435,23 @@ function bench(K, c) {
 }
 
 /* Real finish and color from the product's name (e.g. "Ceni sofa, Hemlock green", "LACK side table, white") */
-const FABRIC_WORDS = [['hemlock green', '#4F6B4E'], ['thistle green', '#7E8C6A'], ['norfolk green', '#5E6F57'], ['ratine navy', '#2E3B55'], ['navy', '#2E3B55'],
+const FABRIC_WORDS = [['hot pink', '#D2457E'], ['light brown-pink', '#C9A49A'], ['pale pink', '#E9C9C8'], ['dusty pink', '#D8A7A8'], ['pastel pink', '#EBC3C6'], ['pink', '#E3AEB6'], ['rose', '#D9A0A6'],
+  ['mint green', '#A8D5C2'], ['spearmint aqua', '#7FC8C0'], ['yarrow gold', '#C9962E'], ['bright yellow', '#E5B92E'], ['orange spice', '#C8642E'], ['valor rust', '#A4532F'], ['hale rust', '#A4532F'], ['amber', '#B9772F'],
+  ['hale fir green', '#2F4A3B'], ['forest green', '#2E4A36'], ['dark green', '#2F4B3A'], ['light green', '#A9B98F'], ['vissle green', '#5A7A55'], ['sage', '#9DAA8C'], ['hale ink', '#2A3346'],
+  ['dark blue', '#2C3A5A'], ['sky blue', '#8FB1CF'], ['blue', '#4C6A92'], ['cream white', '#EEE8DC'], ['rawhide tan', '#A5683A'], ['dark brown', '#3D2B22'], ['multicolor', '#C77B5A'], ['brown', '#6B4A33'],
+  ['hemlock green', '#4F6B4E'], ['thistle green', '#7E8C6A'], ['norfolk green', '#5E6F57'], ['ratine navy', '#2E3B55'], ['navy', '#2E3B55'],
   ['ivory bouclé', '#ECE6DA'], ['bouclé', '#ECE6DA'], ['quartz white', '#E9E7E1'], ['off-white', '#ECE7DD'], ['ivory', '#ECE6DA'], ['cream', '#E6DDCB'],
   ['beige/gray', '#C4BCAF'], ['beige', '#D6C8B2'], ['gray/white', '#CACAC6'], ['dark gray', '#4B4D50'], ['anthracite', '#3B3D40'], ['charcoal', '#3B3C3E'], ['gray', '#8E8F8E'],
   ['charme tan', '#9C6236'], ['welsh taupe', '#9C8C7C'], ['taupe', '#9C8C7C'], ['light brown', '#A88463'], ['tan', '#A8703F'], ['red', '#8E3A33'], ['green', '#5F7A5A'], ['white', '#EFEDE8'], ['black', '#232325']];
-const WOOD_WORDS = [['smoked oak', '#7D5E43'], ['white oak', '#C9A97F'], ['natural oak', '#C59D6A'], ['walnut', '#6A4630'], ['oak', '#C49C69'], ['birch', '#D9BE92'], ['ash', '#D4BA90'],
+const WOOD_WORDS = [['light walnut', '#9A6F4B'], ['weathered cherry', '#7A4A35'], ['cherry', '#7A3E2A'], ['rubberwood', '#C49A6C'], ['reclaimed', '#9C8466'], ['smoked oak', '#7D5E43'], ['white oak', '#C9A97F'], ['natural oak', '#C59D6A'], ['walnut', '#6A4630'], ['oak', '#C49C69'], ['birch', '#D9BE92'], ['ash', '#D4BA90'],
   ['weathered pine', '#A39684'], ['white stain', '#E2DACB'], ['pine', '#CFA66F'], ['acacia', '#8B5B39'], ['mango', '#9A6C45'], ['beech', '#D2AE7D'], ['bamboo', '#C6A367'],
   ['elm', '#A88866'], ['rattan', '#C29A62'], ['natural wood', '#BF9567'], ['natural', '#C6A57A'], ['wood', '#A57D55']];
-const PAINT_WORDS = [['black-brown', '#2D2622'], ['black-blue', '#262C38'], ['gray-brown', '#6E6359'], ['dark brown', '#3D2B22'], ['brown', '#6B4A33'], ['anthracite', '#3B3D40'],
+const PAINT_WORDS = [['terra cotta', '#B5653F'], ['white marble', '#E8E5E0'], ['travertine', '#D9CBB4'], ['chrome', '#C8CCD0'], ['glam gray', '#9EA2A6'], ['mirror', '#D8DCDF'], ['stone', '#D6CFC4'], ['black-brown', '#2D2622'], ['black-blue', '#262C38'], ['gray-brown', '#6E6359'], ['dark brown', '#3D2B22'], ['brown', '#6B4A33'], ['anthracite', '#3B3D40'],
   ['concrete', '#9E9C97'], ['marble', '#D9D5CD'], ['weathered gray', '#9A958C'], ['white', '#EEECE7'], ['black', '#222224']];
 const find = (n, L) => { for (const [w, h] of L) if (n.includes(w)) return h; return null; };
 const UPH = new Set(['sofa', 'armchair', 'bench', 'dchair']);
 function realLook(p) {
-  const n = (p.name.split(',').slice(1).join(',') || p.name).toLowerCase(), full = p.name.toLowerCase(), pal = { ...STYLES[p.style].pal };
+  const n = (p.name.split(',').slice(1).join(',') || p.name).toLowerCase(), full = p.name.toLowerCase(), pal = { ...STYLES[p.look || p.style].pal };
   const wood = find(n, WOOD_WORDS), paint = find(n, PAINT_WORDS), fab = find(n, FABRIC_WORDS);
   const leather = /leather/.test(full) || (/charme/.test(full));
   let base = colorFor(p), isWood = base === pal.wood;
