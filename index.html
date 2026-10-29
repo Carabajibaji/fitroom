@@ -51,10 +51,30 @@ button,input,select,textarea{font:inherit;color:inherit}
 .viewbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:0 auto 10px;max-width:980px}
 .viewbar .seg{flex:0 0 auto}
 .viewbar .seg button{flex:0 0 auto;padding:6px 14px}
-.cams{display:flex;gap:6px}
+.cams{display:flex;flex-wrap:wrap;gap:6px}
+@media (max-width:860px){.cams .btn.small{padding:5px 9px;font-size:13px}.cams [data-snap]{display:none}}
 .view3d{position:relative;max-width:980px;margin:0 auto;height:calc(100vh - 240px);min-height:380px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--bg)}
-.view3d[hidden],.planwrap[hidden]{display:none}
-#c3{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
+.view3d[hidden],.planwrap[hidden],.photov[hidden]{display:none}
+.photov{max-width:980px;margin:0 auto}
+.pv-stage{position:relative;height:calc(100vh - 290px);min-height:380px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#14171B}
+.pv-stage img,.pv-stage canvas,.pv-stage svg{position:absolute;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.pv-stage img:not([src]),.pv-stage img[src=""]{display:none}
+.pv-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:var(--surface)}
+.pv-empty[hidden]{display:none}
+.pv-empty h3{margin:0;font-size:20px}.pv-empty p{margin:0 0 6px;max-width:460px;color:var(--muted);font-size:14.5px}
+.pv-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.pv-sel{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.pv-sel select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:4px 6px}
+.pv-status{flex-basis:100%;margin:2px 0 0}
+.pv-grid{stroke:#fff;stroke-opacity:.55;stroke-width:1}
+.pv-wall{stroke:#fff;stroke-opacity:.8;stroke-width:1.5;stroke-dasharray:5 4}
+.pv-edge{fill:none;stroke:#FFD54A;stroke-width:2.5}
+.pv-h{cursor:grab}.pv-h circle{fill:#FFD54A;stroke:#1E2A35;stroke-width:2}.pv-h .pv-hit{fill:#FFD54A;fill-opacity:.25;stroke:none}
+.pv-h text{font:700 11px system-ui,sans-serif;text-anchor:middle;fill:#1E2A35;pointer-events:none}
+#realBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+@media (max-width:860px){.pv-stage{height:56vh;min-height:320px}}
+#c3r{position:absolute;inset:0;width:100%;height:100%;display:block}
+#c3{position:relative;z-index:1;display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
 #c3:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
 .card3{position:absolute;left:12px;bottom:12px;max-width:min(360px,calc(100% - 24px));background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.35;display:flex;flex-direction:column;gap:3px}
 .card3[hidden]{display:none}
@@ -190,6 +210,8 @@ a.btn{text-decoration:none;color:inherit}
 .status.bad{color:var(--warn)}
 .tools{display:flex;gap:6px}
 .stagebar .hint{flex-basis:100%;margin:0}
+.credits{max-width:760px;margin:14px auto 0;font-size:11.5px;line-height:1.45;color:var(--muted)}
+.credits a{color:inherit}
 
 dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);max-width:min(460px,calc(100vw - 32px));padding:24px}
 dialog::backdrop{background:rgba(10,15,20,.45)}
@@ -247,12 +269,20 @@ input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px s
 <main id="main" class="layout">
   <section class="panel" id="panel"></section>
   <section class="stage" aria-label="Your room">
-    <div class="viewbar"><div class="seg" id="viewSeg"><button type="button" data-v="3d">3D room</button><button type="button" data-v="plan">Floor plan</button></div>
-      <div class="cams" id="cams"><button type="button" class="btn small" data-cam="corner">Corner</button><button type="button" class="btn small" data-cam="top">Overhead</button><button type="button" class="btn small" data-cam="eye">Low angle</button></div></div>
-    <div class="view3d" id="v3"><canvas id="c3" tabindex="0" aria-label="3D view of your room. Drag to look around, drag furniture to move it."></canvas>
+    <div class="viewbar"><div class="seg" id="viewSeg"><button type="button" data-v="3d">3D room</button><button type="button" data-v="plan">Floor plan</button><button type="button" data-v="photo">In my photo</button></div>
+      <div class="cams" id="cams"><button type="button" class="btn small" data-cam="corner">Corner</button><button type="button" class="btn small" data-cam="top">Overhead</button><button type="button" class="btn small" data-cam="eye">Low angle</button><button type="button" class="btn small" id="realBtn" data-real aria-pressed="true">Realistic</button><button type="button" class="btn small" data-snap>Save image</button></div></div>
+    <div class="view3d" id="v3"><canvas id="c3r" aria-hidden="true"></canvas><canvas id="c3" tabindex="0" aria-label="3D view of your room. Drag to look around, drag furniture to move it."></canvas>
       <p class="help3">Drag to look around. Scroll or pinch to zoom. Right-drag or two fingers to pan.</p><div class="card3" id="card3" hidden></div></div>
+    <div class="photov" id="pv" hidden>
+      <div class="pv-stage" id="pvStage"><img id="pvImg" alt=""><canvas id="cph" aria-label="Your room photo with the furniture placed in it"></canvas><svg id="pvSvg" aria-hidden="true"></svg>
+        <div class="pv-empty" id="pvEmpty"><h3>See the furniture in your own room</h3><p>Take a photo from a doorway or corner so you can see where the back wall meets the floor at both corners. Then line up 4 dots on the floor and Fitroom places every piece at its true size.</p>
+          <label class="btn primary"><input type="file" accept="image/*" id="pvFile0" hidden>Add a photo of your room</label> <button type="button" class="btn" id="pvUseFit" hidden>Use my fit-check photo</button></div>
+        <div class="card3" id="pvCard" hidden></div></div>
+      <div class="pv-bar" id="pvBar"></div>
+    </div>
     <div class="planwrap" id="pw"><svg id="plan" role="img" aria-label="Top-down floor plan of your room"></svg></div>
     <div class="stagebar" id="stagebar"></div>
+    <p class="credits">Realistic views show each piece at its listed width and depth, in the color and finish named in the listing. Shapes are lifelike stand-ins, not scans of the exact product. 3D models: potted plant by Rico Cilliers (CC0) with materials by Eric Chadwick / Darmstadt Graphics Group (CC BY 4.0), lounge chair by Eric Chadwick / Wayfair (CC0); textures resized for the web. Rendering by three.js. <a href="CREDITS.md" target="_blank" rel="noopener">Credits</a></p>
   </section>
 </main>
 <div id="scan" hidden aria-label="Room scanner">
@@ -506,7 +536,7 @@ const RETAILERS=[...new Set(PRODUCTS.map(p=>p.retailer))];
 
 /* ---------- State ---------- */
 const S={step:1,room:{type:'living',wft:15,win:0,lft:13,lin:6,door:'S',window:'N'},vibeText:'',styleManual:null,aiWhy:'',aiMust:[],aiPics:false,aiWords:[],aiColors:[],fit:{url:'',name:'',w:null,d:null,h:null,doorW:32,doorH:80,photo:null,status:''},fitBack:false,
-  tier:'mid',photos:[],photoStyle:null,photoWhy:'',view:'3d',video:null,forced:{},layout:null,sel:null,dirty:true,skip:new Set()};
+  tier:'mid',photos:[],photoStyle:null,photoWhy:'',view:'3d',real:true,video:null,forced:{},layout:null,sel:null,dirty:true,skip:new Set()};
 
 /* ---------- Helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -739,7 +769,7 @@ function itemSVG(key,it,fs,state){
       s+=`<text x="${cx}" y="${cy}" font-size="${f}" font-weight="650" fill="${tc}" text-anchor="middle" dominant-baseline="central" style="font-stretch:85%"${vert?` transform="rotate(-90 ${cx} ${cy})"`:''}>${lab}</text>`}}
   return `<g class="item" data-cat="${key}"${S.skip.has(cat)?' opacity=".28"':''} tabindex="0" role="button" aria-label="${esc(it.p.name)}, ${inch(it.p.w)} by ${inch(it.p.d)}. Arrow keys move, R rotates.">${s}</g>`;
 }
-function renderPlan(){if(S.view==='3d'&&G3.ok)G3.build();else renderPlan2D()}
+function renderPlan(){if(S.view==='3d'&&G3.ok)G3.build();else if(S.view==='photo'){window.FR_REAL&&FR_REAL.photoSync()}else renderPlan2D()}
 function renderPlan2D(){
   const W=roomW(),L=roomL(),t=5,m=Math.max(30,Math.min(W,L)*.17),fs=Math.max(7,Math.min(W,L)/24);
   svg.setAttribute('viewBox',`${-m} ${-m} ${W+m+t+6} ${L+m+t+6}`);
@@ -988,7 +1018,7 @@ function renderBar(){
   const c=conflicts(),it=S.sel&&S.layout.items[S.sel],sl=it?CATS[it.grp].label.toLowerCase():'';
   bar.innerHTML=`<p class="status ${c.list.length?'bad':'ok'}">${c.list.length?esc(c.list.join('. '))+'.':'Everything fits, with the door swing and walkways clear.'}</p>
 <div class="tools"><button class="btn small" id="rot" ${it?'':'disabled'}>${it?'Rotate '+sl:'Rotate'}</button><button class="btn small" id="reset">Reset layout</button></div>
-<p class="hint">${S.view==='3d'&&G3.ok?'Drag furniture to move it; drag empty space to look around.':'Drag pieces to move them.'} Select one, then use arrow keys to nudge or R to rotate.</p>`}
+<p class="hint">${S.view==='photo'?'Drag a piece on your photo to move it.':S.view==='3d'&&G3.ok?'Drag furniture to move it; drag empty space to look around.':'Drag pieces to move them.'} Select one, then use arrow keys to nudge or R to rotate.</p>`}
 function render(){
   panel.innerHTML=S.step===1?p1():S.step===2?p2():S.step===4?p4():p3();
   document.querySelectorAll('.steps button').forEach(b=>{if(+b.dataset.go===S.step)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current')});
@@ -1032,6 +1062,8 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#rot')){rotateSel();return}
   const vb=e.target.closest('[data-v]');if(vb){S.view=vb.dataset.v;applyView();renderBar();return}
   const cb=e.target.closest('[data-cam]');if(cb){G3.cam(cb.dataset.cam);return}
+  if(e.target.closest('[data-real]')){S.real=S.real===false;applyView();G3.redraw();return}
+  if(e.target.closest('[data-snap]')){window.FR_REAL&&FR_REAL.snap3d();return}
   if(e.target.closest('#clearPics')){S.photos=[];S.photoStyle=null;S.photoWhy='';markDirty();render();return}
   if(e.target.closest('#reset')){S.layout=makeLayout();S.sel=null;render();return}
 });
@@ -1125,7 +1157,7 @@ const ROOMLOOK={japandi:{floor:'#D5BF9C',wall:'#EEE9E0',mode:2},midcentury:{floo
   industrial:{floor:'#A6A39D',wall:'#C9C3BA',mode:3},boho:{floor:'#C8A57A',wall:'#F0E4D3',mode:2}};
 const G3=(()=>{
   const cv=$('#c3'),wrap=$('#v3');let gl=null;
-  try{gl=cv.getContext('webgl',{antialias:true,alpha:false})||cv.getContext('experimental-webgl')}catch(e){}
+  try{gl=cv.getContext('webgl',{antialias:true,alpha:true,premultipliedAlpha:true})||cv.getContext('experimental-webgl')}catch(e){}
   if(!gl)return{ok:false,build(){},show(){},cam(){}};
   const VS=`attribute vec3 aP;attribute vec3 aN;uniform mat4 uVP;uniform mat4 uM;uniform vec3 uS2;
 varying vec3 vN;varying vec3 vW;varying vec3 vL;
@@ -1284,7 +1316,7 @@ void main(){
     list=[];const Lay=S.layout,on=S.step===3&&Lay&&Lay.type===S.room.type,style=on?Lay.style:effStyle();
     buildRoom(ROOMLOOK[style]||ROOMLOOK.japandi);
     if(on){const bad=conflicts().bad;for(const k of Object.keys(Lay.items))buildItem(k,Lay.items[k],S.sel===k,bad.has(k))}
-    sceneDirty=false;
+    sceneDirty=false;if(window.FR_REAL)FR_REAL.dirty3d();
   }
   function resize(){const dpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,Math.round(cv.clientWidth*dpr)),h=Math.max(1,Math.round(cv.clientHeight*dpr));
     if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h}W=w;H=h;aspect=w/h}
@@ -1296,6 +1328,8 @@ void main(){
     const hk=JSON.stringify(wallsHidden());if(hk!==wallKey){wallKey=hk;sceneDirty=true}
     if(sceneDirty)rebuild();
     const lk=look(eye,cam.t);basis=lk;VP=mul(persp(FOV,aspect,2,6000),lk.m);
+    const RL=window.FR_REAL&&FR_REAL.on3d();$('#c3r').style.visibility=RL?'visible':'hidden';
+    if(RL){gl.viewport(0,0,W,H);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);FR_REAL.render3d({eye,t:cam.t,fov:FOV,hid:wallsHidden()});if(moving)kick();return}
     const bg=rgb(css('--bg')||'#E8EBEE');gl.viewport(0,0,W,H);gl.clearColor(bg[0],bg[1],bg[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);gl.uniformMatrix4fv(U.uVP,false,new Float32Array(VP));
     const op=list.filter(d=>d.o>=1&&d.mode!==1&&d.mode!==5),tr=list.filter(d=>!(d.o>=1&&d.mode!==1&&d.mode!==5));
@@ -1356,7 +1390,7 @@ void main(){
     c.innerHTML=`<b>${esc(p.name)}</b><span>${CATS[it.grp].label}, ${inch(p.w)} W × ${inch(p.d)} D, ${money(p.price)}${x&&x.n>1?` each, ${x.n} in the set`:''}</span><a href="${p.url}" target="_blank" rel="noopener">View at ${p.retailer}</a>`;c.hidden=false}
   new ResizeObserver(()=>kick()).observe(wrap);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>kick());
-  return{ok:true,build(){fit();sceneDirty=true;updateCard();kick()},show(){fit();sceneDirty=true;updateCard();kick()},cam:presets,test:()=>({list:list.length,eye})};
+  return{ok:true,build(){fit();sceneDirty=true;updateCard();kick()},show(){fit();sceneDirty=true;updateCard();kick()},redraw(sync){sceneDirty=true;if(sync){raf&&cancelAnimationFrame(raf);raf=0;frame()}else kick()},cam:presets,test:()=>({list:list.length,eye})};
 })();
 
 /* ---------- Photo vibe: reads colors in the browser ---------- */
@@ -1476,14 +1510,20 @@ function scanUse(){if(SC.len==null||SC.wid==null)return;
   markDirty();stopScan();S.step=S.fitBack?4:1;S.fitBack=false;render();window.scrollTo({top:0})}
 
 /* ---------- View switching ---------- */
-function applyView(){if(!G3.ok||S.step===4)S.view='plan';
-  $('#v3').hidden=S.view!=='3d';$('#pw').hidden=S.view==='3d';$('#cams').style.visibility=S.view==='3d'?'visible':'hidden';
+function applyView(){if(S.step===4||(!G3.ok&&S.view==='3d'))S.view='plan';
+  $('#v3').hidden=S.view!=='3d';$('#pw').hidden=S.view!=='plan';$('#pv').hidden=S.view!=='photo';$('#cams').style.visibility=S.view==='3d'?'visible':'hidden';
+  const rb=$('#realBtn');if(rb){const ok=!!(window.FR_REAL&&FR_REAL.ok);rb.hidden=!ok;rb.setAttribute('aria-pressed',S.real!==false);document.querySelector('[data-snap]').hidden=!ok||S.real===false}
+  const pb=document.querySelector('[data-v="photo"]');if(pb){pb.disabled=!(window.FR_REAL&&FR_REAL.ok);pb.title=pb.disabled?'Loading the realistic renderer…':''}
   document.querySelectorAll('[data-v]').forEach(b=>{b.classList.toggle('on',b.dataset.v===S.view);b.setAttribute('aria-pressed',b.dataset.v===S.view)});
   if(!G3.ok){const b=document.querySelector('[data-v="3d"]');b.disabled=true;b.title='3D needs WebGL, which is turned off in this browser'}
-  if(S.view==='3d')G3.show();else renderPlan2D()}
+  if(S.view==='3d')G3.show();else if(S.view==='photo'){window.FR_REAL&&FR_REAL.photoShow()}else renderPlan2D()}
 
 render();
+document.addEventListener('change',e=>{if(e.target.id==='pvFile0'&&e.target.files[0]){const fr=new FileReader();fr.onload=()=>window.FR_REAL&&FR_REAL.photoSet(fr.result);fr.readAsDataURL(e.target.files[0]);e.target.value=''}});
+document.addEventListener('fitroom-real-ready',()=>applyView());
 </script>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}</script>
+<script type="module" src="real.js"></script>
 
 </body>
 </html>
