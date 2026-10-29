@@ -304,6 +304,11 @@ const STYLE_DEFS = [
     'space age|space-age|retrofuturism|retro futuristic|futuristic|pod|egg chair|jetsons|glossy|sci-fi|chrome',
     'chrome:3 sculptural:3 curved:2 white:2 glass:1 orange:1 fur:1 rustic:-3 traditional:-3',
     ['Pick one pod or round swivel chair.', 'Use chrome and glossy white.', 'Add a sculptural lamp as art.']],
+  ['cosmic', 'Cosmic / space', 'bold', 'Deep midnight blue, chrome, glowing orbs, NASA', 'i',
+    ['#3B3F4A', '#1F2A4A', '#C8CCD4', '#2E3A5C', '#0E1220'], ['#3A3D45', '#1C2440', 3],
+    'space|outer space|nasa|cosmic|cosmos|galaxy|galactic|astronaut|astronomy|stars|starry|night sky|planet|planets|rocket|moon|lunar|celestial|universe|astro|nebula|orbit|spaceship|interstellar|sci-fi|midnight blue|deep blue',
+    'navy:4 blue:3 dark:2 black:2 chrome:3 sculptural:2 curved:2 velvet:1 glass:1 gray:1 white:-1 rustic:-3 floral:-3 pink:-2 rattan:-2 jute:-2',
+    ['Paint one wall (or the ceiling) deep midnight blue.', 'Use chrome and glass so pieces catch light like instruments.', 'Choose round, glowing lamps that read as moons or planets.']],
   ['darkacademia', 'Dark academia', 'bold', 'Book-lined, deep greens and browns, lamplight', 'm',
     ['#4A2F20', '#2F4A3B', '#8A6A3A', '#CDBB9E', '#1C1714'], ['#5E3E2A', '#8C7B66', 2],
     'dark academia|academia|library|books|oxford|scholarly|moody|old money|tweed|study|leather armchair|professor',
@@ -337,6 +342,8 @@ const COLOR_WORDS = [
   ['cream', 'cream'], ['creamy', 'cream'], ['ivory', 'cream'], ['off-white', 'cream'], ['white', 'white'],
   ['beige', 'beige'], ['tan', 'brown'], ['brown', 'brown'], ['chocolate', 'brown'], ['cognac', 'brown'],
   ['gray', 'gray'], ['grey', 'gray'], ['black', 'black'], ['green', 'green'], ['sage', 'green'], ['olive', 'green'], ['mint', 'green'], ['emerald', 'green'],
+  ['deep blue', 'navy'], ['dark blue', 'navy'], ['midnight', 'navy'], ['midnight blue', 'navy'], ['indigo', 'navy'], ['cobalt', 'blue'], ['royal blue', 'blue'],
+  ['dark', 'dark'], ['deep', 'dark'], ['moody', 'dark'], ['night', 'dark'], ['dramatic', 'dark'], ['bright', 'light'], ['airy', 'light'], ['light and airy', 'light'],
   ['blue', 'blue'], ['navy', 'navy'], ['teal', 'blue'], ['aqua', 'blue'], ['yellow', 'yellow'], ['mustard', 'yellow'],
   ['orange', 'orange'], ['rust', 'orange'], ['terracotta', 'terracotta'], ['red', 'red'], ['burgundy', 'red'],
   ['gold', 'brass'], ['brass', 'brass'], ['chrome', 'chrome'], ['silver', 'chrome'], ['velvet', 'velvet'], ['leather', 'leather'],
@@ -381,6 +388,9 @@ function traitsFor(name, cat, extra, oldLetter) {
   if (/weathered|reclaimed|distressed|salvaged|antique|live edge/.test(n) || has('pine') || has('jute')) t.add('rustic');
   if (['rattan', 'jute', 'terracotta', 'stone', 'warmwood', 'bamboo'].some(has)) t.add('earthy');
   if (!['pattern', 'tufted', 'carved', 'sculptural', 'traditional'].some(has)) t.add('simple');
+  if (has('navy')) t.add('blue');
+  if (['black', 'navy', 'darkwood'].some(has) || /charcoal|dark gray|dark blue|dark green|fir green|forest green|dark brown|anthracite/.test(n)) t.add('dark');
+  if (['white', 'cream', 'lightwood'].some(has) || /pale|light /.test(n)) t.add('light');
   return t;
 }
 function parseWant(s) { const o = {}; for (const kv of s.split(/\s+/)) { const [k, v] = kv.split(':'); if (k) o[k] = +v; } return o; }
@@ -475,6 +485,10 @@ const NEW_ROWS = [
   ['dtable', 'Raffy dining table, weathered cherry', 78, 42, 850, LS + 'pdp-raffy-weathered-cherry-dining-table-395511', null, 'Living Spaces', 'traditional'],
   ['dtable', 'Nellie 56" round geometric pedestal dining table, natural wood', 56, 56, 850, LS + 'pdp-nellie-natural-modern-wood-round-dining-table-346010', 'round', 'Living Spaces', ''],
   ['bed', 'Kaelan velvet panel bed with nailheads, blue, Queen', 64, 84, 295, LS + 'pdp-kaelan-queen-velvet-upholstered-panel-bed-342554', 'queen', 'Living Spaces', 'traditional'],
+  ['dchair', 'Gianna velvet dining chair, navy with chrome', 24, 22, 280, LS + 'pdp-gianna-navy-velvet-dining-chair-with-chrome-finish-376555', null, 'Living Spaces', ''],
+  ['armchair', 'Charli velvet swivel chair, dark blue', 32.4, 32.5, 649, LS + 'pdp-charli-dark-blue-velvet-swivel-chair-412639', null, 'Living Spaces', 'curved'],
+  ['rug', 'Neo washable diamond rug, navy blue, 8\'x10\'', 120, 96, 342, LS + 'pdp-8x10-rug-neo-washable-diamond-navy-blue-368617', null, 'Living Spaces', ''],
+  ['rug', 'Belgrade Jay washable rug, navy, 8\'x10\'', 120, 96, 550, LS + 'pdp-8-x-10-rug-belgrade-jay-washable-navy-388978', null, 'Living Spaces', ''],
   ['bed', 'Gio II arched velvet panel bed, brown, Queen', 60.23, 81.49, 595, LS + 'pdp-gio-ii-queen-upholstered-arch-panel-bed-369134', 'queen', 'Living Spaces', '']
 ];
 
