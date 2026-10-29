@@ -197,6 +197,9 @@ a.btn{text-decoration:none;color:inherit}
 .sc-chips span{display:block;font-size:12px;color:var(--muted)}
 .sc-chips b{font-size:18px;font-variant-numeric:tabular-nums}
 .sc-panel .btn.wide{margin-top:0}
+#scanAdd{min-height:52px;font-size:17px}
+#scanAdd.dim{opacity:.6}
+#scanType{background:none;border-color:transparent;font-size:13.5px;color:var(--muted)}
 .sc-credit{margin:0;font-size:11.5px;color:var(--muted);text-align:center}
 .marble{margin-top:28px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 .marble b{display:block}
@@ -297,6 +300,7 @@ input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px s
     <button type="button" class="btn primary wide" id="scanAdd" disabled>Add point</button>
     <button type="button" class="btn primary wide" id="scanUse" hidden>Use these measurements</button>
     <button type="button" class="btn wide" id="scanRetry" hidden>Try again</button>
+    <button type="button" class="btn wide" id="scanType">Type the measurements instead</button>
     <p class="sc-credit">Phone scanning powered by 8th Wall</p>
   </div>
 </div>
@@ -1053,6 +1057,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#scanAdd')){scanAdd();return}
   if(e.target.closest('#scanUse')){scanUse();return}
   if(e.target.closest('#scanRetry')){stopScan();startScan();return}
+  if(e.target.closest('#scanType')){stopScan();S.step=S.fitBack?4:1;S.fitBack=false;render();return}
   if(e.target.closest('#ckAll')){S.skip.clear();updatePick();return}
   if(e.target.closest('#ckNone')){groups().forEach(x=>S.skip.add(x.g));updatePick();return}
   if(e.target.closest('#buyAll')){const by={};for(const x of groups())if(!S.skip.has(x.g))(by[x.p.retailer]=by[x.p.retailer]||[]).push(x);
@@ -1429,7 +1434,7 @@ const SC={step:'off',pts:[],aim:null,tracking:'LIMITED',added:false,objs:[],len:
 const SC_TEXT={
   load:'Loading the scanner. The first time takes a few seconds.',
   floor:'Point your phone at the floor and move it slowly from side to side, so Fitroom can judge distances.',
-  A:'Aim the cross at a corner where two walls meet the floor, then tap Add point.',
+  A:'Aim the cross at a corner where two walls meet the floor, then tap Add point (or tap anywhere on the camera view).',
   B:'Aim at the next corner along the same wall.',
   C:'Turn and aim at the next corner along the other wall.',
   done:'Done. Check the numbers, then use them for your room.'};
@@ -1440,7 +1445,7 @@ function ftin(m){return fmt(m*39.3701)}
 function scanSet(step){SC.step=step;scEl('scanIns').textContent=SC_TEXT[step]||'';
   scEl('scanUndo').hidden=!(step==='B'||step==='C'||step==='done');scEl('scanUse').hidden=step!=='done';scEl('scanAdd').hidden=step==='done';
   scEl('scL').textContent=SC.len!=null?ftin(SC.len):'–';scEl('scW').textContent=SC.wid!=null?ftin(SC.wid):'–';scanBtnState()}
-function scanBtnState(){scEl('scanAdd').disabled=!(SC.aim&&['A','B','C'].includes(SC.step))}
+function scanBtnState(){const on=['A','B','C'].includes(SC.step);scEl('scanAdd').disabled=!on;scEl('scanAdd').classList.toggle('dim',on&&!SC.aim)}
 function scanFail(msg){scEl('scanWarn').textContent=msg;scEl('scanIns').textContent='';scEl('scanAdd').hidden=true;scEl('scanRetry').hidden=false}
 async function startScan(){
   /* iPhone Safari only asks for motion access from a tap, so ask right away */
@@ -1465,6 +1470,7 @@ async function startScan(){
 }
 function sizeScanCanvas(){const c=scEl('scanCv'),d=Math.min(window.devicePixelRatio||1,2);c.width=Math.round(innerWidth*d);c.height=Math.round(innerHeight*d)}
 window.addEventListener('resize',()=>{if(SC.step!=='off')sizeScanCanvas()});
+document.getElementById('scanCv').addEventListener('click',()=>{if(['A','B','C'].includes(SC.step))scanAdd()});
 function stopScan(){try{window.XR8&&window.XR8.stop()}catch(e){}
   SC.objs.forEach(o=>o.parent&&o.parent.remove(o));SC.objs=[];SC.reticle=null;SC.live=null;
   SC.step='off';scEl('scan').hidden=true;document.body.style.overflow=''}
@@ -1473,30 +1479,33 @@ function scanModule(){return{name:'fitroom-measure',
     window.XR8.XrController.updateCameraProjectionMatrix({origin:camera.position,facing:camera.quaternion});
     const ring=new T.Mesh(new T.RingGeometry(.035,.05,32),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9,side:T.DoubleSide,depthTest:false}));
     ring.rotation.x=-Math.PI/2;ring.visible=false;scene.add(ring);SC.reticle=ring;SC.objs.push(ring);
-    const live=seg(0xF2C14E);live.visible=false;SC.live=live;scanSet('floor')},
+    const live=seg(0xF2C14E);live.visible=false;SC.live=live;SC.t0=performance.now();SC.sm=null;scanSet('floor')},
   onUpdate:()=>scanAim(),
   onCameraStatusChange:({status})=>{if(status==='failed')scanFail('Fitroom needs the camera to measure. Allow camera access for this site in your browser settings, then tap Try again.')},
   onException:e=>scanFail('The scanner stopped. Tap Try again.'),
   listeners:[{event:'reality.trackingstatus',process:({detail})=>{SC.tracking=detail.status;
-    if(detail.status==='NORMAL'&&SC.step==='floor')scanSet('A');
+    if(SC.step==='floor'&&(detail.status==='NORMAL'||(detail.status==='LIMITED'&&performance.now()-(SC.t0||0)>6000)))scanSet('A');
     scEl('scanWarn').textContent=(detail.status!=='NORMAL'&&SC.step!=='floor'&&SC.step!=='load')?'Tracking is weak. Move slowly and aim at something with texture.':''}}]}}
 function seg(color){const T=window.THREE,m=new T.Mesh(new T.BoxGeometry(.008,.008,1),new T.MeshBasicMaterial({color,depthTest:false}));SC.scene.add(m);SC.objs.push(m);return m}
 function placeSeg(m,a,b){const T=window.THREE,d=a.distanceTo(b);if(d<.005){m.visible=false;return}m.visible=true;m.position.copy(a).add(b).multiplyScalar(.5);m.scale.set(1,1,d);m.lookAt(b)}
 function dot(p){const T=window.THREE,m=new T.Mesh(new T.SphereGeometry(.02,16,12),new T.MeshBasicMaterial({color:0xffffff,depthTest:false}));m.position.copy(p);SC.scene.add(m);SC.objs.push(m);return m}
 const hdist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 function scanAim(){const T=window.THREE;if(!SC.cam||!SC.reticle)return;
-  let p=null;
-  if(SC.tracking==='NORMAL'&&['A','B','C'].includes(SC.step)){
+  let p=null;const now=performance.now();
+  if(SC.tracking!=='UNAVAILABLE'&&['A','B','C'].includes(SC.step)){
     const rc=new T.Raycaster();rc.setFromCamera({x:0,y:0},SC.cam);const o=rc.ray.origin,d=rc.ray.direction;
     /* Absolute scale puts the floor at height 0, so the aim point is where the center ray meets it. */
-    if(o.y>.3&&o.y<3&&d.y<-.04){const t=-o.y/d.y;if(t<12)p=o.clone().add(d.clone().multiplyScalar(t))}}
+    if(o.y>.2&&o.y<3.5&&d.y<-.015){const t=-o.y/d.y;if(t<20)p=o.clone().add(d.clone().multiplyScalar(t))}}
+  /* smooth out jitter, and keep the last good aim for a moment so the button doesn't flicker */
+  if(p){if(SC.sm&&now-SC.seen<400)p=SC.sm.clone().lerp(p,.35);SC.sm=p.clone();SC.seen=now}
+  else if(SC.sm&&now-SC.seen<1200)p=SC.sm.clone();
   const had=!!SC.aim;SC.aim=p;
   SC.reticle.visible=!!p;if(p)SC.reticle.position.set(p.x,.003,p.z);
   const last=SC.pts[SC.pts.length-1];
   if(p&&last&&SC.step!=='A'){placeSeg(SC.live,last.p,p);const v=ftin(hdist(last.p,p));if(scEl('scanLive').textContent!==v)scEl('scanLive').textContent=v;scEl('scanLive').hidden=false}
   else{if(SC.live)SC.live.visible=false;scEl('scanLive').hidden=true}
   if(had!==!!p)scanBtnState()}
-function scanAdd(){const p=SC.aim;if(!p)return;const P=p.clone();try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}
+function scanAdd(){const p=SC.aim;if(!p){scEl('scanWarn').textContent='Fitroom can\'t see the floor at the cross yet. Tilt the phone down a little and move slowly.';return}scEl('scanWarn').textContent='';const P=p.clone();try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}
   const last=SC.pts[SC.pts.length-1],mk={p:P,objs:[dot(P)]};
   if(last){const s=seg(0xF2C14E);placeSeg(s,last.p,P);mk.objs.push(s)}
   SC.pts.push(mk);
