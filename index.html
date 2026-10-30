@@ -323,7 +323,7 @@ input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px s
 </main>
 <div id="scan" hidden aria-label="Room scanner">
   <canvas id="scanCv"></canvas>
-  <div class="sc-top"><button type="button" class="btn small" id="scanClose">Cancel</button><button type="button" class="btn small" id="scanUndo" hidden>Undo</button></div>
+  <div class="sc-top"><button type="button" class="btn small" id="scanClose">Cancel</button><div style="display:flex;gap:8px"><button type="button" class="btn small" id="scanReset" hidden>Start over</button><button type="button" class="btn small" id="scanUndo" hidden>Undo</button></div></div>
   <div class="sc-cross" aria-hidden="true"></div>
   <div class="sc-live" id="scanLive" hidden></div>
   <div class="sc-panel">
@@ -334,7 +334,7 @@ input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px s
     <button type="button" class="btn primary wide" id="scanUse" hidden>Use these measurements</button>
     <button type="button" class="btn wide" id="scanRetry" hidden>Try again</button>
     <button type="button" class="btn wide" id="scanType">Type the measurements instead</button>
-    <p class="sc-credit">Phone scanning powered by 8th Wall</p>
+    <p class="sc-credit">Phone scanning powered by 8th Wall. On an iPhone Pro, the Fitroom app's LiDAR scan is more accurate.</p>
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -870,8 +870,8 @@ ${S.scanNote?`<p class="scannote">${esc(S.scanNote)}</p>`:''}
 <p>The Fitroom app measures your room with the camera in about a minute. iPhone Pro models scan it automatically with LiDAR; other iPhones measure by aiming at three floor corners.</p>
 ${appBtn('btn small')}</div>
 <fieldset><legend>Wall lengths</legend>
-<div class="dim"><span>Width, left to right</span><div class="ftin"><input type="number" id="wft" min="6" max="40" value="${r.wft}" aria-label="Width feet"><i>ft</i><input type="number" id="win" min="0" max="11" value="${r.win}" aria-label="Width inches"><i>in</i></div></div>
-<div class="dim"><span>Depth, top to bottom</span><div class="ftin"><input type="number" id="lft" min="6" max="40" value="${r.lft}" aria-label="Depth feet"><i>ft</i><input type="number" id="lin" min="0" max="11" value="${r.lin}" aria-label="Depth inches"><i>in</i></div></div>
+<div class="dim"><span>Width, left to right</span><div class="ftin"><input type="number" id="wft" min="6" max="60" value="${r.wft}" aria-label="Width feet"><i>ft</i><input type="number" id="win" min="0" max="11" value="${r.win}" aria-label="Width inches"><i>in</i></div></div>
+<div class="dim"><span>Depth, top to bottom</span><div class="ftin"><input type="number" id="lft" min="6" max="60" value="${r.lft}" aria-label="Depth feet"><i>ft</i><input type="number" id="lin" min="0" max="11" value="${r.lin}" aria-label="Depth inches"><i>in</i></div></div>
 </fieldset>
 <div class="two">
 <label class="field"><span class="lbl">Door</span><select id="door">${wallOpts(r.door)}</select></label>
@@ -1135,7 +1135,8 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#scanUndo')){scanUndo();return}
   if(e.target.closest('#scanAdd')){scanAdd();return}
   if(e.target.closest('#scanUse')){scanUse();return}
-  if(e.target.closest('#scanRetry')){stopScan();startScan();return}
+  if(e.target.closest('#scanReset')){scanRestart();return}
+  if(e.target.closest('#scanRetry')){stopScan();setTimeout(startScan,400);return}
   if(e.target.closest('#scanType')){stopScan();S.step=S.fitBack?4:1;S.fitBack=false;render();return}
   if(e.target.closest('#ckAll')){S.skip.clear();updatePick();return}
   if(e.target.closest('#ckNone')){groups().forEach(x=>S.skip.add(x.g));updatePick();return}
@@ -1200,7 +1201,7 @@ function openDlg(h){$('#dlgBody').innerHTML=h;$('#dlg').showModal()}
 document.addEventListener('input',e=>{
   const id=e.target.id;
   if(['wft','win','lft','lin'].includes(id)){const v=parseInt(e.target.value,10);if(isNaN(v))return;
-    S.room[id]=id.endsWith('in')?clamp(v,0,11):clamp(v,6,40);markDirty();renderPlan();renderBar()}
+    S.room[id]=id.endsWith('in')?clamp(v,0,11):clamp(v,6,60);markDirty();renderPlan();renderBar()}
   if(id==='vibe'){S.vibeText=e.target.value;S.styleManual=null;S.aiWhy='';S.aiMust=[];S.aiPics=false;S.aiWords=[];S.aiColors=[];markDirty();$('#detect').innerHTML=detectLine();refreshStyles();$('#tierHint').textContent=tierHint()}
 });
 document.addEventListener('change',e=>{
@@ -1524,29 +1525,38 @@ function scanBtn(){
 function qrDlg(url){openDlg(`<h3>Scan with your phone</h3><p>Point your phone's camera at this code to open Fitroom there, then tap <b>Scan my room with the camera</b>.</p><div id="qrbox"></div><p class="url">${esc(url)}</p>`);
   const box=$('#qrbox');if(window.QRCode){try{new QRCode(box,{text:url,width:220,height:220,colorDark:'#1E2A35',colorLight:'#FFFFFF'})}catch(e){box.hidden=true}}else box.hidden=true}
 
-const SC={step:'off',pts:[],aim:null,tracking:'LIMITED',added:false,objs:[],len:null,wid:null};
+const SC={step:'off',pts:[],aim:null,tracking:'LIMITED',added:false,objs:[],len:null,wid:null,starting:false,failed:false,warn:''};
+/* Reused every frame so the scanner doesn't create garbage 60 times a second (a big cause of lag) */
+const SCR={rc:null,ndc:{x:0,y:0},buf:[]};
+/* Past about 6 m (20 ft) the aim ray hits the floor at such a shallow angle that a tiny wobble
+   becomes a big error, so we ask the user to walk closer instead of showing a bad number. */
+const SC_MAX_RAY=6;
 const SC_TEXT={
   load:'Loading the scanner. The first time takes a few seconds.',
-  floor:'Point your phone at the floor and move it slowly from side to side, so Fitroom can judge distances.',
-  A:'Length: aim the cross at one end of a wall, where it meets the floor, then tap Add point (or anywhere on the screen).',
-  B:'Length: now aim at the other end of that same wall and tap.',
+  floor:'Point your phone at the floor and move it slowly from side to side, so Fitroom can judge distances. Turn on the room lights if you can.',
+  A:'Length: stand near one end of a wall. Aim the cross where it meets the floor, then tap Add point (or anywhere on the screen).',
+  B:'Length: walk along the wall toward its other end, aim there and tap. For long walls, walk most of the way first.',
   C:'Width: aim at one end of the other wall and tap. The width starts from 0 here.',
-  D:'Width: now aim at the other end of that wall and tap.',
+  D:'Width: walk toward the other end of that wall, aim there and tap.',
   done:'Done. Check both numbers. If one looks wrong, tap Undo and measure it again.'};
 const scEl=id=>document.getElementById(id);
 function loadScript(src,attrs){return new Promise((res,rej)=>{const t=document.createElement('script');t.src=src;t.async=true;t.crossOrigin='anonymous';
   for(const k in (attrs||{}))t.setAttribute(k,attrs[k]);t.onload=res;t.onerror=()=>rej(new Error(src));document.head.appendChild(t)})}
 function ftin(m){return fmt(m*39.3701)}
 function scanSet(step){SC.step=step;scEl('scanIns').textContent=SC_TEXT[step]||'';
-  scEl('scanUndo').hidden=!(SC.pts.length>0);scEl('scanUse').hidden=step!=='done';scEl('scanAdd').hidden=step==='done';
+  scEl('scanUndo').hidden=!(SC.pts.length>0);scEl('scanReset').hidden=!SC.pts.length;scEl('scanUse').hidden=step!=='done';scEl('scanAdd').hidden=step==='done';
   scEl('scL').textContent=SC.len!=null?ftin(SC.len):'–';scEl('scW').textContent=SC.wid!=null?ftin(SC.wid):'–';scanBtnState()}
 function scanBtnState(){const on=['A','B','C','D'].includes(SC.step);scEl('scanAdd').disabled=!on;scEl('scanAdd').classList.toggle('dim',on&&!SC.aim)}
-function scanFail(msg){scEl('scanWarn').textContent=msg;scEl('scanIns').textContent='';scEl('scanAdd').hidden=true;scEl('scanRetry').hidden=false}
+function scanWarn(msg){if(SC.failed||SC.warn===msg)return;SC.warn=msg;scEl('scanWarn').textContent=msg}
+function scanFail(msg){SC.failed=true;scEl('scanWarn').textContent=msg;scEl('scanIns').textContent='';scEl('scanAdd').hidden=true;scEl('scanRetry').hidden=false}
 async function startScan(){
+  if(SC.starting)return;            /* ignore double taps while the engine is loading */
+  SC.starting=true;
+  try{
   /* iPhone Safari only asks for motion access from a tap, so ask right away */
   const asks=[];try{if(window.DeviceMotionEvent&&DeviceMotionEvent.requestPermission)asks.push(DeviceMotionEvent.requestPermission())}catch(e){}
   try{if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission)asks.push(DeviceOrientationEvent.requestPermission())}catch(e){}
-  Object.assign(SC,{pts:[],aim:null,len:null,wid:null,wallStart:null,lastAdd:0,tracking:'LIMITED'});
+  Object.assign(SC,{pts:[],aim:null,len:null,wid:null,wallStart:null,lastAdd:0,tracking:'LIMITED',failed:false,warn:''});SCR.buf.length=0;
   scEl('scan').hidden=false;document.body.style.overflow='hidden';scEl('scanWarn').textContent='';scEl('scanRetry').hidden=true;scEl('scanLive').hidden=true;scanSet('load');
   const got=await Promise.all(asks.map(p=>p.catch(()=>'denied')));
   if(got.includes('denied')){scanFail('Fitroom needs motion access to measure. Close this tab, reopen the page and tap Allow when asked.');return}
@@ -1558,34 +1568,45 @@ async function startScan(){
   sizeScanCanvas();
   const XR8=window.XR8;
   try{
+    try{XR8.stop()}catch(e){}       /* make sure an old run (e.g. after an error) isn't still going */
     XR8.XrController.configure({scale:'absolute',disableWorldTracking:false});
     if(!SC.added){XR8.addCameraPipelineModules([XR8.GlTextureRenderer.pipelineModule(),XR8.Threejs.pipelineModule(),XR8.XrController.pipelineModule(),scanModule()]);SC.added=true}
     XR8.run({canvas:scEl('scanCv'),allowedDevices:XR8.XrConfig.device().MOBILE});
   }catch(e){scanFail('The scanner could not start on this browser. Try Safari on iPhone or Chrome on Android.')}
+  }finally{SC.starting=false}
 }
-function sizeScanCanvas(){const c=scEl('scanCv'),d=Math.min(window.devicePixelRatio||1,2);c.width=Math.round(innerWidth*d);c.height=Math.round(innerHeight*d)}
+/* Show the whole camera picture (3:4) instead of zooming it in to fill a tall phone screen.
+   The canvas stays centered so the cross in the middle of the screen still matches the aim. */
+function sizeScanCanvas(){const c=scEl('scanCv'),d=Math.min(window.devicePixelRatio||1,1.5);
+  const w=innerWidth,h=Math.min(innerHeight,Math.round(w*4/3));
+  c.style.width=w+'px';c.style.height=h+'px';c.style.top=Math.round((innerHeight-h)/2)+'px';c.style.bottom='auto';
+  c.width=Math.round(w*d);c.height=Math.round(h*d)}
 window.addEventListener('resize',()=>{if(SC.step!=='off')sizeScanCanvas()});
 {const cv=document.getElementById('scanCv');let d0=null;
   cv.addEventListener('pointerdown',e=>{d0=[e.clientX,e.clientY]});
   cv.addEventListener('pointerup',e=>{if(d0&&Math.hypot(e.clientX-d0[0],e.clientY-d0[1])<12&&['A','B','C','D'].includes(SC.step))scanAdd();d0=null})}
 function stopScan(){try{window.XR8&&window.XR8.stop()}catch(e){}
-  SC.objs.forEach(o=>o.parent&&o.parent.remove(o));SC.objs=[];SC.reticle=null;SC.live=null;
+  SC.objs.forEach(o=>o.parent&&o.parent.remove(o));SC.objs=[];SC.reticle=null;SC.live=null;SC.pts=[];SC.aim=null;SCR.buf.length=0;
   SC.step='off';scEl('scan').hidden=true;document.body.style.overflow=''}
 /* Scene objects for the scanner. Built on first frame of every run, so a second try works too. */
 function scanSetup(){const T=window.THREE,{scene,camera}=window.XR8.Threejs.xrScene();SC.scene=scene;SC.cam=camera;
+  try{window.XR8.XrController.recenter()}catch(e){}   /* every new scan starts from a fresh origin */
   const ring=new T.Mesh(new T.RingGeometry(.035,.05,32),new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9,side:T.DoubleSide,depthTest:false}));
   ring.rotation.x=-Math.PI/2;ring.visible=false;scene.add(ring);SC.reticle=ring;SC.objs.push(ring);
-  const live=seg(0xF2C14E);live.visible=false;SC.live=live;SC.t0=performance.now();SC.sm=null;SC.lastAdd=0;
+  const live=seg(0xF2C14E);live.visible=false;SC.live=live;SC.t0=performance.now();SC.sm=null;SC.lastAdd=0;SCR.buf.length=0;
   if(SC.step==='load')scanSet('floor')}
 function scanModule(){return{name:'fitroom-measure',
   onStart:()=>{const {camera}=window.XR8.Threejs.xrScene();window.XR8.XrController.updateCameraProjectionMatrix({origin:camera.position,facing:camera.quaternion});if(!SC.reticle)scanSetup()},
-  onUpdate:()=>{if(SC.step==='off')return;if(!SC.reticle)scanSetup();
-    if(SC.step==='floor'&&performance.now()-(SC.t0||0)>9000)scanSet('A');scanAim()},
+  /* Read tracking status every frame too. The event only fires when the status CHANGES,
+     so after Try again / a second scan it may never fire. */
+  onUpdate:({processCpuResult})=>{if(SC.step==='off')return;const r=processCpuResult&&processCpuResult.reality;if(r&&r.trackingStatus)SC.tracking=r.trackingStatus;
+    if(!SC.reticle)scanSetup();
+    if(SC.step==='floor'&&(SC.tracking==='NORMAL'||performance.now()-(SC.t0||0)>9000))scanSet('A');scanAim()},
   onCameraStatusChange:({status})=>{if(status==='failed')scanFail('Fitroom needs the camera to measure. Allow camera access for this site in your browser settings, then tap Try again.')},
   onException:e=>scanFail('The scanner stopped. Tap Try again.'),
   listeners:[{event:'reality.trackingstatus',process:({detail})=>{SC.tracking=detail.status;
     if(SC.step==='floor'&&(detail.status==='NORMAL'||(detail.status==='LIMITED'&&performance.now()-(SC.t0||0)>6000)))scanSet('A');
-    scEl('scanWarn').textContent=(detail.status!=='NORMAL'&&SC.step!=='floor'&&SC.step!=='load')?'Tracking is weak. Move slowly and aim at something with texture.':''}}]}}
+}}]}}
 function seg(color){const T=window.THREE,m=new T.Mesh(new T.BoxGeometry(.008,.008,1),new T.MeshBasicMaterial({color,depthTest:false}));SC.scene.add(m);SC.objs.push(m);return m}
 function placeSeg(m,a,b){const T=window.THREE,d=a.distanceTo(b);if(d<.005){m.visible=false;return}m.visible=true;m.position.copy(a).add(b).multiplyScalar(.5);m.scale.set(1,1,d);m.lookAt(b)}
 function dot(p){const T=window.THREE,m=new T.Mesh(new T.SphereGeometry(.02,16,12),new T.MeshBasicMaterial({color:0xffffff,depthTest:false}));m.position.copy(p);SC.scene.add(m);SC.objs.push(m);return m}
@@ -1593,14 +1614,23 @@ const hdist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const AIMING=['A','B','C','D'];
 /* each wall is measured on its own: A = start of length, B = end; C = start of width, D = end */
 function scanAim(){const T=window.THREE;if(!SC.cam||!SC.reticle)return;
-  let p=null;const now=performance.now();
+  let p=null,why='';const now=performance.now();
   if(SC.tracking!=='UNAVAILABLE'&&AIMING.includes(SC.step)){
-    const rc=new T.Raycaster();rc.setFromCamera({x:0,y:0},SC.cam);const o=rc.ray.origin,d=rc.ray.direction;
+    if(!SCR.rc)SCR.rc=new T.Raycaster();
+    SCR.rc.setFromCamera(SCR.ndc,SC.cam);const o=SCR.rc.ray.origin,d=SCR.rc.ray.direction;
     /* Absolute scale puts the floor at height 0, so the aim point is where the center ray meets it. */
-    if(o.y>.2&&o.y<3.5&&d.y<-.015){const t=-o.y/d.y;if(t<20)p=o.clone().add(d.clone().multiplyScalar(t))}}
-  /* smooth out jitter, and keep the last good aim for a moment so the button doesn't flicker */
-  if(p){if(SC.sm&&now-SC.seen<400)p=SC.sm.clone().lerp(p,.35);SC.sm=p.clone();SC.seen=now}
-  else if(SC.sm&&now-SC.seen<1200)p=SC.sm.clone();
+    if(o.y>.2&&o.y<3.5&&d.y<-.015){const t=-o.y/d.y;
+      if(t>SC_MAX_RAY)why='That spot is too far to measure accurately. Walk closer (within about 15 ft).';
+      else p={x:o.x+d.x*t,z:o.z+d.z*t}}
+    else if(d.y>=-.015)why='Tilt your phone down toward the floor.'}
+  if(SC.tracking!=='NORMAL'&&!['floor','load','done','off'].includes(SC.step))why='Tracking is weak. Move slowly, turn on a light, and aim at something with texture.';
+  /* Smooth the aim: median of the last 6 frames, so the number stops jumping around */
+  const b=SCR.buf;
+  if(p){const q=b[b.length-1];if(q&&Math.hypot(q.x-p.x,q.z-p.z)>.25)b.length=0;b.push(p);if(b.length>6)b.shift();
+    const med=k=>{const v=b.map(e=>e[k]).sort((x,y)=>x-y);return v[v.length>>1]};
+    p=new T.Vector3(med('x'),0,med('z'));SC.sm=p.clone();SC.seen=now}
+  else{b.length=0;if(SC.sm&&now-SC.seen<1200&&!why)p=SC.sm.clone()}   /* keep the last good aim for a moment so the button doesn't flicker */
+  if(now>(SC.holdWarn||0))scanWarn(why);
   const had=!!SC.aim;SC.aim=p;
   SC.reticle.visible=!!p;if(p)SC.reticle.position.set(p.x,.003,p.z);
   const st=SC.wallStart;
@@ -1608,26 +1638,32 @@ function scanAim(){const T=window.THREE;if(!SC.cam||!SC.reticle)return;
   else{if(SC.live)SC.live.visible=false;scEl('scanLive').hidden=true}
   if(had!==!!p)scanBtnState()}
 function scanAdd(){if(!AIMING.includes(SC.step))return;const p=SC.aim;
-  if(!p){scEl('scanWarn').textContent='Fitroom can\'t see the floor at the cross yet. Tilt the phone down a little and move slowly.';return}
+  if(!p){scanWarn('Fitroom can\'t see the floor at the cross yet. Tilt the phone down a little and move slowly.');SC.holdWarn=performance.now()+2500;return}
   const now=performance.now();if(now-(SC.lastAdd||0)<600)return;
   const ending=SC.step==='B'||SC.step==='D';
-  if(ending&&hdist(SC.wallStart,p)<.6){scEl('scanWarn').textContent='That\'s right where this wall started. Aim at the other end of the wall, then tap.';return}
-  scEl('scanWarn').textContent='';SC.lastAdd=now;SC.sm=null;SC.seen=0;const P=p.clone();try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}
+  if(ending&&hdist(SC.wallStart,p)<.6){scanWarn('That\'s right where this wall started. Aim at the other end of the wall, then tap.');SC.holdWarn=performance.now()+2500;return}
+  scanWarn('');SC.holdWarn=0;SC.lastAdd=now;SC.sm=null;SC.seen=0;const P=p.clone();try{navigator.vibrate&&navigator.vibrate(15)}catch(e){}
   const mk={p:P,step:SC.step,objs:[dot(P)]};
   if(ending){const s=seg(0xF2C14E);placeSeg(s,SC.wallStart,P);mk.objs.push(s)}
-  SC.pts.push(mk);
+  SC.pts.push(mk);SCR.buf.length=0;
   if(SC.step==='A'){SC.wallStart=P;scanSet('B')}
   else if(SC.step==='B'){SC.len=hdist(SC.wallStart,P);SC.wallStart=null;scanSet('C')}
   else if(SC.step==='C'){SC.wallStart=P;scanSet('D')}
   else{SC.wid=hdist(SC.wallStart,P);SC.wallStart=null;scanSet('done');SC.reticle.visible=false}}
-function scanUndo(){const mk=SC.pts.pop();if(!mk)return;mk.objs.forEach(o=>SC.scene&&SC.scene.remove(o));
+function scanUndo(){const mk=SC.pts.pop();if(!mk)return;mk.objs.forEach(o=>SC.scene&&SC.scene.remove(o));SCR.buf.length=0;
   const prev=SC.pts[SC.pts.length-1];SC.lastAdd=0;
   if(mk.step==='D'){SC.wid=null;SC.wallStart=prev.p;scanSet('D')}
   else if(mk.step==='C'){SC.wallStart=null;scanSet('C')}
   else if(mk.step==='B'){SC.len=null;SC.wallStart=prev.p;scanSet('B')}
   else{SC.wallStart=null;scanSet('A')}}
+/* Start over: wipe every point and number back to 0 without reloading the camera */
+function scanRestart(){if(SC.scene)SC.pts.forEach(mk=>mk.objs.forEach(o=>SC.scene.remove(o)));
+  SC.pts=[];SC.len=null;SC.wid=null;SC.aim=null;SC.wallStart=null;SC.sm=null;SC.lastAdd=0;SCR.buf.length=0;
+  if(SC.live)SC.live.visible=false;scEl('scanLive').hidden=true;scanWarn('');
+  try{window.XR8&&window.XR8.XrController.recenter()}catch(e){}
+  scanSet(SC.tracking==='NORMAL'?'A':'floor');SC.t0=performance.now()}
 function scanUse(){if(SC.len==null||SC.wid==null)return;
-  const a=Math.round(Math.max(SC.len,SC.wid)*39.3701),b=Math.round(Math.min(SC.len,SC.wid)*39.3701),cl=i=>clamp(i,72,480);
+  const a=Math.round(Math.max(SC.len,SC.wid)*39.3701),b=Math.round(Math.min(SC.len,SC.wid)*39.3701),cl=i=>clamp(i,72,720);
   const W=cl(a),L=cl(b);Object.assign(S.room,{wft:Math.floor(W/12),win:W%12,lft:Math.floor(L/12),lin:L%12});
   S.scanNote=`Measured with your phone: ${fmt(W)} by ${fmt(L)}. Check the door and window walls below.`;
   markDirty();stopScan();S.step=S.fitBack?4:1;S.fitBack=false;render();window.scrollTo({top:0})}
