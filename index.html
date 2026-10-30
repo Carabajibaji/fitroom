@@ -126,6 +126,12 @@ legend{font-weight:650;font-size:14px;margin-bottom:7px;padding:0}
 .btn.wide{width:100%;margin-top:8px}
 a.btn{text-decoration:none;color:inherit}
 
+textarea::placeholder{color:#8f8a84;opacity:1}
+.ideas{margin:-8px 0 18px}
+.ideas .hint{margin:0 0 8px}
+.ideas .chips{display:flex;flex-wrap:wrap;gap:6px}
+.idea{border:1px solid var(--line);background:var(--surface);color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.idea:hover{border-color:var(--ink)}
 .detect{min-height:1.5em;font-size:14.5px;margin:-8px 0 16px}
 .detect b{font-weight:700}
 .styles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:22px}
@@ -862,10 +868,31 @@ function styleBox(){const st=effStyle();if(!S.fam||(S.famAuto!==false&&STYLES[st
 function famScroll(){const t=document.querySelector('.famtabs [aria-selected="true"]');if(t)t.parentNode.scrollLeft=t.offsetLeft-t.parentNode.offsetLeft-12}
 function refreshStyles(){S.famAuto=true;const b=$('#styleBox');if(b){b.innerHTML=styleBox();famScroll()}}
 const tierHint=()=>`A fully furnished ${RT().noun} runs about ${money(typicalRoom(effStyle(),S.tier))} at this level.`;
-function p2(){const st=effStyle();setTimeout(famScroll,0);return`
+/* Prompt ideas: plain feelings people already have ("like the beach") paired with the refined wording that
+   the style reader understands (style name + colors + materials + mood). Each was checked against detect(). */
+const IDEAS=[
+ ['Like the beach','Relaxed coastal, like the beach: white and sky blue, light driftwood, rattan and linen, bright and airy'],
+ ['Warm like sunlight','Warm like sunlight: California casual with honey wood, cream linen and golden afternoon light'],
+ ['Outer space / NASA','Outer space and NASA: midnight blue walls, chrome and glass accents, a deep navy sofa, sculptural lighting'],
+ ['Calm and quiet','Calm and minimalist: pale oak, linen, open space, nothing too busy'],
+ ['Cute and soft','Cute and cozy: creamy pink velvet, soft blush and cream, curved shapes'],
+ ['Cozy cabin','Rustic cabin: dark wood, leather, wool throws and warm lamp light'],
+ ['Fancy hotel','Contemporary luxury, like a boutique hotel: marble, brass accents, velvet and leather, a moody dark palette'],
+ ['Fresh and leafy','Biophilic: lots of plants, green, natural wood, stone and jute'],
+ ['Old library','Dark academia: dark wood, deep green, a leather armchair and a library feel'],
+ ['Retro 70s','1970s retro: rust orange and brown velvet, curvy shapes'],
+ ['Paris apartment','Parisian apartment: cream walls, velvet, brass and marble'],
+ ['Zen and natural','Japandi: light wood, low furniture, linen, quiet and uncluttered']];
+const ideaPh=i=>'Try: '+IDEAS[i%IDEAS.length][1];
+let ideaI=0;
+/* The gray example text in the box rotates every few seconds. It is only a placeholder, so typing replaces it. */
+setInterval(()=>{const t=document.getElementById('vibe');if(!t||document.activeElement===t)return;ideaI=(ideaI+1)%IDEAS.length;t.placeholder=ideaPh(ideaI)},4500);
+function p2(){const st=effStyle();setTimeout(famScroll,0);ideaI=Math.floor(Math.random()*IDEAS.length);return`
 <h1>Describe the vibe</h1>
 <p class="lede">Use your own words, pick a style, or add photos of rooms you love.</p>
-<label class="field"><span class="lbl">In your words</span><textarea id="vibe" rows="3" placeholder="Warm and calm, lots of natural wood, nothing too busy">${esc(S.vibeText)}</textarea></label>
+<label class="field"><span class="lbl">In your words</span><textarea id="vibe" rows="3" placeholder="${esc(ideaPh(ideaI))}">${esc(S.vibeText)}</textarea></label>
+<div class="ideas"><p class="hint">Not sure what to say? A good description mixes a <b>feeling</b>, <b>colors</b>, <b>materials</b> and a <b>place or era</b>. Tap an idea to start, then change any word.</p>
+<div class="chips">${IDEAS.map(([l],i)=>`<button type="button" class="idea" data-idea="${i}">${l}</button>`).join('')}</div></div>
 <div class="field"><button type="button" class="btn small" id="askAI">${S.photos.length?'Ask Claude to read my words and photos':'Ask Claude to read my words'}</button> <span class="hint" id="aiStatus"></span></div>
 <p class="detect" id="detect">${detectLine()}</p>
 <div id="styleBox">${styleBox()}</div>
@@ -1061,6 +1088,7 @@ function markDirty(){S.dirty=true;S.forced={}}
 /* ---------- Events ---------- */
 document.addEventListener('click',e=>{
   const g=e.target.closest('[data-go]');if(g){go(+g.dataset.go);return}
+  const idea=e.target.closest('[data-idea]');if(idea){const t=$('#vibe');if(t){t.value=IDEAS[+idea.dataset.idea][1];t.dispatchEvent(new Event('input',{bubbles:true}));t.focus();t.setSelectionRange(t.value.length,t.value.length)}return}
   const ty=e.target.closest('[data-type]');if(ty){S.room.type=ty.dataset.type;markDirty();document.querySelectorAll('[data-type]').forEach(b=>b.classList.toggle('on',b===ty));renderBar();return}
   const fb=e.target.closest('[data-fam]');if(fb){S.fam=fb.dataset.fam;S.famAuto=false;$('#styleBox').innerHTML=styleBox();famScroll();return}
   const sb=e.target.closest('[data-style]');if(sb){S.styleManual=sb.dataset.style;S.famAuto=false;S.aiWhy='';S.aiMust=[];S.aiWords=[];S.aiColors=[];markDirty();
