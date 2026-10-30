@@ -584,12 +584,17 @@ function buildRoom(group, Wd, Ld, door, win, style, hid) {
       A(11, 0, 2.6, 82, 1.2); A(47, 0, 2.6, 82, 1.2); A(29, 80, 38.6, 2.6, 1.2);
     }
   }
-  /* open door leaf, swung into the room against the wall it's hinged on */
-  const L1 = { N: [12.75, 17, 1.5, 34], S: [12.75, Ld - 17, 1.5, 34], W: [17, 12.75, 34, 1.5], E: [Wd - 17, 12.75, 34, 1.5] }[door];
-  if (L1) {
-    box(L1[0], 0, L1[1], L1[2], 79.5, L1[3], matPaint('#F1EEE8'));
-    const kx = door === 'N' || door === 'S' ? L1[0] + 1.1 : L1[0], kz = door === 'N' ? L1[1] + 14 : door === 'S' ? L1[1] - 14 : L1[1] + (door === 'W' || door === 'E' ? 1.1 : 0);
-    const knob = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 12), matMetal('#B08A4A')); knob.position.set(door === 'W' ? L1[0] + 14 : door === 'E' ? L1[0] - 14 : kx, 36, door === 'N' || door === 'S' ? kz : L1[1] + 1.1); group.add(knob);
+  /* closed door leaf, set inside its opening (12"–46" along the wall), slightly recessed from the room face.
+     Skipped when that wall is cut away for the view, so it never stands loose in the room. */
+  if (door && !hid[door]) {
+    const hz = door === 'N' || door === 'S', inw = { N: 1, S: -1, W: 1, E: -1 }[door];   // direction into the room
+    const face = { N: 0, S: Ld, W: 0, E: Wd }[door], mid = face - inw * 1.6;              // leaf center, inside the wall
+    const A = (u, y, along, sy, thick, off, m) => { const n = mid + inw * off; return hz ? box(u, y, n, along, sy, thick, m) : box(n, y, u, thick, sy, along, m); };
+    const leaf = matPaint('#F1EEE8'), pnl = matPaint('#E9E5DD');
+    A(29, 0, 33.6, 79.6, 1.75, 0, leaf);
+    A(29, 44, 25, 30, .35, 1.0, pnl); A(29, 8, 25, 30, .35, 1.0, pnl);                     // two raised panels on the room side
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(1.15, 16, 12), matMetal('#B08A4A')), kn = mid + inw * 2.2;
+    knob.position.set(hz ? 42.5 : kn, 36, hz ? kn : 42.5); knob.castShadow = true; group.add(knob);
   }
   return winInfo;
 }
@@ -649,6 +654,15 @@ class Real3D {
 
 /* ---------------- "In my photo" view ---------------- */
 const WALLNAME = { N: 'Top', S: 'Bottom', W: 'Left', E: 'Right' };
+const DOTNAME = ['Back-left corner', 'Back-right corner', 'Right wall meets floor', 'Left wall meets floor'];
+/* small sketch of a room seen from the doorway, with the 4 dots where they belong */
+function guideSVG() {
+  const L = (a, b, c, d) => `<line x1="${a}" y1="${b}" x2="${c}" y2="${d}"/>`, D = (x, y, n) => `<g transform="translate(${x},${y})"><circle r="6.5"/><text y="3.2">${n}</text></g>`;
+  return `<svg class="pv-sketch" viewBox="0 0 160 92" aria-hidden="true"><rect class="bw" x="48" y="10" width="64" height="44"/>
+    <path class="fl" d="M48 54 L112 54 L158 90 L2 90 Z"/>${L(2, 0, 48, 10)}${L(158, 0, 112, 10)}${L(48, 10, 112, 10)}${L(48, 10, 48, 54)}${L(112, 10, 112, 54)}
+    <g class="edge">${L(48, 54, 112, 54)}${L(48, 54, 6, 87)}${L(112, 54, 154, 87)}</g>
+    <text class="cap" x="80" y="34">far wall</text>${D(48, 54, 1)}${D(112, 54, 2)}${D(139, 75, 3)}${D(21, 75, 4)}</svg>`;
+}
 class PhotoView {
   constructor() {
     this.el = document.getElementById('pv'); this.stage = document.getElementById('pvStage'); this.cv = document.getElementById('cph');
@@ -662,13 +676,16 @@ class PhotoView {
     this.scene.add(this.hemi, sun, sun.target);
     this.world = new THREE.Group(); this.furn = new THREE.Group(); this.catch = new THREE.Group(); this.world.add(this.furn); this.scene.add(this.world, this.catch);
     this.fs = new FurnitureSync(this.furn, { blob: true, lights: false });
-    this.ph = null; this.sol = null; this.drag = null; this.raycaster = new THREE.Raycaster();
+    this.ph = null; this.shots = []; this.guideOff = false; this.guide = document.getElementById('pvGuide');
+    this.sol = null; this.drag = null; this.raycaster = new THREE.Raycaster();
+    const ep = document.querySelector('#pvEmpty p'); if (ep) ep.insertAdjacentHTML('afterend', guideSVG());
     this.wire();
   }
   /* ---- UI ---- */
   wire() {
     this.el.addEventListener('change', e => {
       if (e.target.id === 'pvFile' && e.target.files[0]) { const fr = new FileReader(); fr.onload = () => this.setPhoto(fr.result); fr.readAsDataURL(e.target.files[0]); e.target.value = ''; }
+      if (e.target.id === 'pvAdd' && e.target.files[0]) { const fr = new FileReader(); fr.onload = () => this.setPhoto(fr.result, true); fr.readAsDataURL(e.target.files[0]); e.target.value = ''; }
       if (e.target.id === 'pvWall') { this.ph.wall = e.target.value; this.solve(); this.paint(); }
       if (e.target.id === 'pvLens') { this.ph.lens = e.target.value; this.solve(); this.paint(); }
     });
@@ -676,6 +693,11 @@ class PhotoView {
       if (e.target.closest('#pvAlign')) { this.ph.mode = this.ph.mode === 'align' ? 'place' : 'align'; if (this.ph.mode === 'align') { S.sel = null; } this.bars(); this.paint(); }
       if (e.target.closest('#pvSave')) this.save();
       if (e.target.closest('#pvUseFit')) this.setPhoto(S.fit.photo);
+      if (e.target.closest('#pvLook')) this.lookFrom3D();
+      if (e.target.closest('#pvGuideX')) { this.guideOff = true; this.paint(); }
+      if (e.target.closest('#pvGuideOn')) { this.guideOff = false; this.paint(); }
+      const sh = e.target.closest('[data-shot]'); if (sh) { this.ph = this.shots[+sh.dataset.shot]; this.img.src = this.ph.src; this.solve(); this.bars(); this.paint(); }
+      if (e.target.closest('#pvDrop') && this.shots.length > 1) { this.shots.splice(this.shots.indexOf(this.ph), 1); this.ph = this.shots[0]; this.img.src = this.ph.src; this.solve(); this.bars(); this.paint(); }
     });
     new ResizeObserver(() => this.ph && this.paint()).observe(this.stage);
     /* dots (align mode) */
@@ -693,15 +715,37 @@ class PhotoView {
     const up = e => { if (this.drag) { this.drag = null; renderBar(); syncRows(); this.cv.style.cursor = ''; } }; this.cv.addEventListener('pointerup', up); this.cv.addEventListener('pointercancel', up);
   }
   box() { return this.cv.getBoundingClientRect(); }
-  setPhoto(src) {
+  /* Each photo is one "angle" of the room. asNew adds another angle (facing the next wall); otherwise it replaces the current one. */
+  setPhoto(src, asNew) {
     const im = new Image();
     im.onload = () => {
-      const wall = this.ph && this.ph.wall || OPP[S.room.door] || 'N';
-      this.ph = { src, w: im.naturalWidth, h: im.naturalHeight, im, wall, lens: 'auto', mode: 'align',
+      const used = this.shots.filter(s => s !== this.ph || asNew).map(s => s.wall), first = OPP[S.room.door] || 'N';
+      const order = [first, ...['N', 'E', 'S', 'W'].filter(k => k !== first)];
+      const wall = !asNew && this.ph ? this.ph.wall : order.find(k => !used.includes(k)) || first;
+      const shot = { src, w: im.naturalWidth, h: im.naturalHeight, im, wall, lens: 'auto', mode: 'align',
         pts: [[.3, .52], [.7, .52], [.92, .9], [.08, .9]] };
+      if (asNew || !this.ph) this.shots.push(shot); else this.shots[this.shots.indexOf(this.ph)] = shot;
+      this.ph = shot; this.guideOff = false;
       this.img.src = src; this.light(im); this.solve(); this.bars(); this.paint();
+      document.dispatchEvent(new Event('fitroom-photo'));
     };
     im.src = src;
+  }
+  /* put the room into the photo's frame: x along the facing wall, z toward the camera */
+  placeWorld() {
+    const W = roomW(), L = roomL(), wl = this.ph.wall;
+    const rot = { N: 0, E: Math.PI / 2, S: Math.PI, W: -Math.PI / 2 }[wl], pos = { N: [0, 0], E: [0, W], S: [W, L], W: [L, 0] }[wl];
+    this.world.rotation.y = rot; this.world.position.set(pos[0], 0, pos[1]); this.world.updateMatrixWorld(true);
+  }
+  /* open the 3D room from the spot where the photo was taken, so the user can turn and look past whatever blocks the photo */
+  lookFrom3D() {
+    const s = this.sol; if (!s || !s.ok || typeof G3 === 'undefined' || !G3.ok) return;
+    this.placeWorld();
+    /* keep the standing spot inside the room (or just in the doorway) at eye height, even if the photo's numbers are rough */
+    const Wm = this.wallWidth(), Dm = this.wallDepth(), eF = new THREE.Vector3(clamp(s.camX, 6, Wm - 6), clamp(s.camH, 36, 72), clamp(s.camY, 24, Dm + 6));
+    const tF = new THREE.Vector3(clamp(s.camX, 0, Wm), 26, eF.z * .4);
+    const e = this.world.worldToLocal(eF), t = this.world.worldToLocal(tF);
+    S.view = '3d'; applyView(); renderBar(); G3.lookFrom([e.x, e.y, e.z], [t.x, t.y, t.z]);
   }
   light(im) { /* read the photo's brightness and color cast so the furniture is lit to match */
     const n = 48, c = canvasOf(n, n), x = c.getContext('2d'); x.drawImage(im, 0, 0, n, n); let d; try { d = x.getImageData(0, 0, n, n).data; } catch (e) { return; }
@@ -720,14 +764,29 @@ class PhotoView {
     const p = this.ph, hasFit = S.fit && S.fit.photo;
     const empty = document.getElementById('pvEmpty'); empty.hidden = !!p;
     document.getElementById('pvUseFit').hidden = !hasFit;
-    if (!p) { this.bar.innerHTML = ''; this.svg.innerHTML = ''; return; }
+    if (!p) { this.bar.innerHTML = ''; this.svg.innerHTML = ''; this.guide.hidden = true; return; }
     const opt = k => `<option value="${k}"${p.wall === k ? ' selected' : ''}>${WALLNAME[k]} wall${S.room.window === k ? ' (window)' : ''}${S.room.door === k ? ' (door)' : ''}</option>`;
-    this.bar.innerHTML = `<label class="btn small"><input type="file" accept="image/*" id="pvFile" hidden>Change photo</label>
+    const tabs = this.shots.map((s, i) => `<button type="button" data-shot="${i}" class="${s === p ? 'on' : ''}">Angle ${i + 1} · ${WALLNAME[s.wall]} wall</button>`).join('');
+    this.bar.innerHTML = `<div class="pv-angles"><span class="pv-lbl">Angles</span><div class="seg">${tabs}</div>
+        <label class="btn small"><input type="file" accept="image/*" id="pvAdd" hidden>+ Add another angle</label>
+        ${this.shots.length > 1 ? '<button type="button" class="btn small" id="pvDrop">Remove this angle</button>' : ''}</div>
+      <label class="btn small"><input type="file" accept="image/*" id="pvFile" hidden>Change photo</label>
       <button type="button" class="btn small${p.mode === 'align' ? ' primary' : ''}" id="pvAlign">${p.mode === 'align' ? 'Done, place furniture' : 'Line up the floor'}</button>
+      <button type="button" class="btn small" id="pvLook" title="Opens the 3D room from where you stood. Drag to turn and look past anything blocking the photo.">Look around from here in 3D</button>
       <label class="pv-sel"><span>Wall you're facing</span><select id="pvWall">${['N', 'E', 'S', 'W'].map(opt).join('')}</select></label>
       <label class="pv-sel"><span>Lens</span><select id="pvLens"><option value="auto"${p.lens === 'auto' ? ' selected' : ''}>Auto</option><option value="wide"${p.lens === 'wide' ? ' selected' : ''}>1x</option><option value="ultra"${p.lens === 'ultra' ? ' selected' : ''}>0.5x</option></select></label>
       <button type="button" class="btn small" id="pvSave">Save image</button>
       <p class="hint pv-status" id="pvStatus"></p>`;
+  }
+  /* the "where do the 4 dots go" card shown over the photo while lining up the floor */
+  guideHTML() {
+    return `<button type="button" class="pv-gx" id="pvGuideX" aria-label="Hide the guide">×</button>
+      <b>Line up the floor in 4 taps</b>${guideSVG()}
+      <ol><li><i>1</i><span><b>Back-left corner.</b> Where the far wall, the left wall and the floor meet.</span></li>
+      <li><i>2</i><span><b>Back-right corner.</b> The same spot on the right side of the far wall.</span></li>
+      <li><i>3</i><span><b>Right wall.</b> Any spot lower down where the right wall meets the floor.</span></li>
+      <li><i>4</i><span><b>Left wall.</b> Any spot lower down where the left wall meets the floor.</span></li></ol>
+      <p>Corner hidden by a TV or sofa? Put the dot where the corner would be, following the line where the wall meets the floor. Or add another angle.</p>`;
   }
   show() {
     this.bars(); if (this.ph) this.paint();
@@ -747,7 +806,7 @@ class PhotoView {
     this.overlay(R); this.render3();
     const st = document.getElementById('pvStatus'), s = this.sol;
     if (st) st.textContent = !s ? '' : !s.ok ? s.why : p.mode === 'align'
-      ? `Drag dots 1 and 2 onto the back corners where the walls meet the floor, and 3 and 4 onto the floor edges of the side walls. Camera about ${fmt(s.camH)} up (phones are usually held 4–5 ft up).`
+      ? `Drag each yellow dot to the spot its tag names. The white grid should lie flat on your floor in 1 ft squares. Camera about ${fmt(s.camH)} up (phones are usually held 4–5 ft up).`
       : `Showing your ${WALLNAME[p.wall].toLowerCase()} wall, ${fmt(this.wallWidth())} wide, at true scale. Drag a piece to move it.`;
     this.updCard();
   }
@@ -765,9 +824,18 @@ class PhotoView {
     if (p.mode === 'align') {
       const Q = p.pts.map(([x, y]) => [x * R.w, y * R.h]);
       h += `<polyline points="${Q[3]} ${Q[0]} ${Q[1]} ${Q[2]}" class="pv-edge"/>`;
+      Q.forEach((q, i) => {
+        /* a name tag beside every dot, so it is clear which corner each one belongs on */
+        const t = DOTNAME[i], tw = t.length * 6.7 + 20, below = q[1] < 40, ty = below ? q[1] + 20 : q[1] - 38;
+        const tx = clamp(q[0] - tw / 2, 4, Math.max(4, R.w - tw - 4));
+        h += `<g class="pv-tag" transform="translate(${tx},${ty})"><rect width="${tw}" height="20" rx="10"/><text x="${tw / 2}" y="14">${t}</text></g>`;
+      });
       Q.forEach((q, i) => { h += `<g data-h="${i}" class="pv-h" transform="translate(${q[0]},${q[1]})"><circle r="16" class="pv-hit"/><circle r="9"/><text y="4">${i + 1}</text></g>`; });
     }
     this.svg.innerHTML = h;
+    const g = this.guide, showG = p.mode === 'align' && !this.guideOff;
+    g.hidden = p.mode !== 'align'; g.classList.toggle('min', !showG);
+    g.innerHTML = showG ? this.guideHTML() : '<button type="button" class="btn small" id="pvGuideOn">Where do the dots go?</button>';
   }
   /* world: x along the facing wall, z toward the camera, y up (inches). Room layout coords map in by wall. */
   render3() {
@@ -776,9 +844,8 @@ class PhotoView {
     const { r1, r2, up, t } = s, V = new THREE.Matrix4().set(r1[0], up[0], r2[0], t[0], -r1[1], -up[1], -r2[1], -t[1], -r1[2], -up[2], -r2[2], -t[2], 0, 0, 0, 1);
     this.cam.matrix.copy(V).invert(); this.cam.matrix.decompose(this.cam.position, this.cam.quaternion, this.cam.scale); this.cam.updateMatrixWorld(true);
     this.cam.fov = 2 * Math.atan(p.h / 2 / s.f) * 180 / Math.PI; this.cam.aspect = p.w / p.h; this.cam.near = 2; this.cam.far = 6000; this.cam.updateProjectionMatrix();
-    const W = roomW(), L = roomL(), wl = p.wall, Wm = this.wallWidth(), Dm = this.wallDepth();
-    const rot = { N: 0, E: Math.PI / 2, S: Math.PI, W: -Math.PI / 2 }[wl], pos = { N: [0, 0], E: [0, W], S: [W, L], W: [L, 0] }[wl];
-    this.world.rotation.y = rot; this.world.position.set(pos[0], 0, pos[1]); this.world.updateMatrixWorld(true);
+    const Wm = this.wallWidth(), Dm = this.wallDepth();
+    this.placeWorld();
     /* shadow catchers on the floor and walls */
     const sig = [Wm, Dm].join(); if (this.catchSig !== sig) {
       this.catchSig = sig; this.catch.clear();
@@ -842,6 +909,7 @@ const api = {
   photoShow() { if (PV) PV.show(); },
   photoSync() { if (PV && PV.ph) PV.paint(); },
   photoSet(src) { if (PV) PV.setPhoto(src); },
+  hasPhoto() { return !!(PV && PV.ph); },
   _pv: () => PV, _r3: () => R3
 };
 try {

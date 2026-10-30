@@ -71,6 +71,28 @@ button,input,select,textarea{font:inherit;color:inherit}
 .pv-edge{fill:none;stroke:#FFD54A;stroke-width:2.5}
 .pv-h{cursor:grab}.pv-h circle{fill:#FFD54A;stroke:#1E2A35;stroke-width:2}.pv-h .pv-hit{fill:#FFD54A;fill-opacity:.25;stroke:none}
 .pv-h text{font:700 11px system-ui,sans-serif;text-anchor:middle;fill:#1E2A35;pointer-events:none}
+.pv-tag{pointer-events:none}.pv-tag rect{fill:#1E2A35;fill-opacity:.88;stroke:#FFD54A;stroke-width:1}
+.pv-tag text{font:650 12px "Archivo",system-ui,sans-serif;text-anchor:middle;fill:#fff}
+.pv-guide{position:absolute;top:12px;left:12px;width:min(290px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.4;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.pv-guide[hidden]{display:none}
+.pv-guide.min{width:auto;padding:0;background:none;border:0;box-shadow:none}
+.pv-guide>b{display:block;font-size:14.5px;margin-right:24px}
+.pv-guide ol{list-style:none;margin:8px 0;padding:0;display:grid;gap:6px}
+.pv-guide li{display:grid;grid-template-columns:20px 1fr;gap:8px;align-items:start}
+.pv-guide li i{font-style:normal;width:20px;height:20px;border-radius:50%;background:#FFD54A;color:#1E2A35;border:1.5px solid #1E2A35;font-weight:750;font-size:11px;display:grid;place-items:center}
+.pv-guide li b{font-weight:700}
+.pv-guide p{margin:0;color:var(--muted);font-size:12.5px}
+.pv-gx{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:2px 4px}
+.pv-stage .pv-sketch{position:static;display:block;width:100%;max-width:200px;margin:8px auto 2px;pointer-events:none}
+.pv-sketch line{stroke:var(--muted);stroke-width:1.2}.pv-sketch .bw{fill:var(--bg);stroke:var(--muted);stroke-width:1.2}.pv-sketch .fl{fill:var(--zone)}
+.pv-sketch .edge line{stroke:#E0A800;stroke-width:2}
+.pv-sketch circle{fill:#FFD54A;stroke:#1E2A35;stroke-width:1.5}.pv-sketch text{font:750 8px system-ui,sans-serif;text-anchor:middle;fill:#1E2A35}
+.pv-sketch .cap{font:600 8px "Archivo",system-ui,sans-serif;fill:var(--muted)}
+.pv-stage .pv-empty .pv-sketch{max-width:240px;margin:0 auto 8px}
+@media (max-width:600px){.pv-guide{width:168px;padding:8px 10px}.pv-guide>b{font-size:12.5px}.pv-guide ol,.pv-guide p{display:none}.pv-stage .pv-guide .pv-sketch{max-width:146px;margin:4px 0 0}}
+.pv-angles{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.pv-lbl{font-size:13px;font-weight:650;color:var(--muted)}
+.pv-angles .seg{display:inline-flex;flex-wrap:wrap}
 #realBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:860px){.pv-stage{height:56vh;min-height:320px}}
 #c3r{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -289,6 +311,7 @@ input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px s
       <div class="pv-stage" id="pvStage"><img id="pvImg" alt=""><canvas id="cph" aria-label="Your room photo with the furniture placed in it"></canvas><svg id="pvSvg" aria-hidden="true"></svg>
         <div class="pv-empty" id="pvEmpty"><h3>See the furniture in your own room</h3><p>Take a photo from a doorway or corner so you can see where the back wall meets the floor at both corners. Then line up 4 dots on the floor and Fitroom places every piece at its true size.</p>
           <label class="btn primary"><input type="file" accept="image/*" id="pvFile0" hidden>Add a photo of your room</label> <button type="button" class="btn" id="pvUseFit" hidden>Use my fit-check photo</button></div>
+        <div class="pv-guide" id="pvGuide" hidden></div>
         <div class="card3" id="pvCard" hidden></div></div>
       <div class="pv-bar" id="pvBar"></div>
     </div>
@@ -837,6 +860,10 @@ function p1(){const r=S.room;return`
 <div class="field"><span class="lbl">Room type</span><div class="seg">${Object.entries(ROOMS).map(([k,v])=>`<button type="button" data-type="${k}" class="${r.type===k?'on':''}">${v.label}</button>`).join('')}</div></div>
 <div class="scanrow">${scanBtn()}</div>
 ${S.scanNote?`<p class="scannote">${esc(S.scanNote)}</p>`:''}
+<div class="appcard photocard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 16l5-5 4 4 3-3 6.5 6"/><circle cx="16.5" cy="9.5" r="1.6"/></svg>
+<b>Upload a photo of your room</b>
+<p>Stand in the doorway or a corner and take one photo where you can see the far wall touch the floor at both ends. Fitroom places the furniture you pick right into that photo at true size. Have more than one photo? Add each as another angle. Your photo stays in this browser.</p>
+<label class="btn small"><input type="file" accept="image/*" id="roomPhoto" hidden>${window.FR_REAL&&FR_REAL.hasPhoto&&FR_REAL.hasPhoto()?'Photo added. Change it':'Upload a room photo'}</label></div>
 <div class="appcard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M9.5 9.5h5v5h-5z"/><path d="M11 18.5h2"/></svg>
 <b>Or use the Fitroom iPhone app</b>
 <p>The Fitroom app measures your room with the camera in about a minute. iPhone Pro models scan it automatically with LiDAR; other iPhones measure by aiming at three floor corners.</p>
@@ -1180,6 +1207,7 @@ document.addEventListener('change',e=>{
   if(id==='door'){S.room.door=e.target.value;markDirty();renderPlan();renderBar()}
   if(id==='wnd'){S.room.window=e.target.value;markDirty();renderPlan();renderBar()}
   if(id==='vid'&&e.target.files[0]){S.video=e.target.files[0].name;render()}
+  if(id==='roomPhoto'&&e.target.files[0]){const rd=new FileReader();rd.onload=()=>{if(!(window.FR_REAL&&FR_REAL.ok))return;S.view='photo';applyView();FR_REAL.photoSet(rd.result);if(innerWidth<=860)document.querySelector('.stage').scrollIntoView({behavior:'smooth'})};rd.readAsDataURL(e.target.files[0]);e.target.value=''}
   if(id==='pics'){const fs=[...e.target.files].slice(0,6-S.photos.length);let left=fs.length;
     fs.forEach(f=>{const r=new FileReader();r.onload=()=>{S.photos.push(r.result);if(--left===0)analyzePhotos().then(()=>{markDirty();render()})};r.readAsDataURL(f)})}
 });
@@ -1316,8 +1344,10 @@ void main(){
         A(c,28.5,wl+6,1.6,t+3,'#F6F4EF');A(c,78,wl+2,1.5,t+.6,'#F6F4EF');A(c,30,1.6,48,t+.4,'#F6F4EF');
         A(c-wl/2,30,1.4,48,t+.4,'#F6F4EF');A(c+wl/2,30,1.4,48,t+.4,'#F6F4EF');A(c,30,wl,48,.5,'#BFD9E8',.28)}
     }
-    const lf='#EFEAE2',L1={N:[12.75,17,1.5,34],S:[12.75,Ld-17,1.5,34],W:[17,12.75,34,1.5],E:[Wd-17,12.75,34,1.5]}[dw];
-    add('box',T0,L1[0],0,L1[1],L1[2],80,L1[3],lf);
+    /* closed door, set inside its opening; hidden with its wall so it never floats in the room */
+    if(!hid[dw]){const hz=dw==='N'||dw==='S',inw={N:1,S:-1,W:1,E:-1}[dw],mid={N:0,S:Ld,W:0,E:Wd}[dw]-inw*1.6;
+      const A=(u,y,al,sy,th,off,c,g='box')=>{const n=mid+inw*off;hz?add(g,T0,u,y,n,al,sy,th,c):add(g,T0,n,y,u,th,sy,al,c)};
+      A(29,0,33.6,80,1.75,0,'#EFEAE2');A(29,44,25,30,.35,1,'#E6E1D8');A(29,8,25,30,.35,1,'#E6E1D8');A(42.5,35,2.2,2.2,2.2,2.2,'#B08A4A','sph')}
   }
   function buildItem(k,it,sel,bad){
     const p=it.p,cat=it.grp,r=it.r,th={N:0,S:Math.PI,W:Math.PI/2,E:-Math.PI/2}[it.back]||0,side=Math.abs(Math.sin(th))>.5;
@@ -1450,7 +1480,11 @@ void main(){
     c.innerHTML=`<b>${esc(p.name)}</b><span>${CATS[it.grp].label}, ${inch(p.w)} W × ${inch(p.d)} D, ${money(p.price)}${x&&x.n>1?` each, ${x.n} in the set`:''}</span><a href="${p.url}" target="_blank" rel="noopener">View at ${p.retailer}</a>`;c.hidden=false}
   new ResizeObserver(()=>kick()).observe(wrap);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>kick());
-  return{ok:true,build(){fit();sceneDirty=true;updateCard();kick()},show(){fit();sceneDirty=true;updateCard();kick()},redraw(sync){sceneDirty=true;if(sync){raf&&cancelAnimationFrame(raf);raf=0;frame()}else kick()},cam:presets,test:()=>({list:list.length,eye})};
+  /* stand at a spot (e.g. where a room photo was taken) and look at t; dragging then turns around t */
+  function lookFrom(e,t){fit();const d=sub(e,t),r=Math.max(60,Math.hypot(...d));
+    const ph=clamp(Math.acos(clamp(d[1]/r,-1,1)),.02,1.5),th=Math.atan2(d[0],d[2]);
+    Object.assign(cam,{t:[...t],r,ph,th,init:1});Object.assign(want,{t:[...t],r,ph,th});sceneDirty=true;kick()}
+  return{ok:true,build(){fit();sceneDirty=true;updateCard();kick()},show(){fit();sceneDirty=true;updateCard();kick()},redraw(sync){sceneDirty=true;if(sync){raf&&cancelAnimationFrame(raf);raf=0;frame()}else kick()},cam:presets,lookFrom,test:()=>({list:list.length,eye,cam:{...cam}})};
 })();
 
 /* ---------- Photo vibe: reads colors in the browser ---------- */
@@ -1594,6 +1628,7 @@ function scanUse(){if(SC.len==null||SC.wid==null)return;
   markDirty();stopScan();S.step=S.fitBack?4:1;S.fitBack=false;render();window.scrollTo({top:0})}
 
 /* ---------- View switching ---------- */
+document.addEventListener('fitroom-photo',()=>{if(S.step===1)render()});
 function applyView(){if(S.step===4||(!G3.ok&&S.view==='3d'))S.view='plan';
   $('#v3').hidden=S.view!=='3d';$('#pw').hidden=S.view!=='plan';$('#pv').hidden=S.view!=='photo';$('#cams').style.visibility=S.view==='3d'?'visible':'hidden';
   const rb=$('#realBtn');if(rb){const ok=!!(window.FR_REAL&&FR_REAL.ok);rb.hidden=!ok;rb.setAttribute('aria-pressed',S.real!==false);document.querySelector('[data-snap]').hidden=!ok||S.real===false}
