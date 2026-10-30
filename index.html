@@ -52,6 +52,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .viewbar .seg{flex:0 0 auto}
 .viewbar .seg button{flex:0 0 auto;padding:6px 14px}
 .cams{display:flex;flex-wrap:wrap;gap:6px}
+#angleCams{display:contents}
 @media (max-width:860px){.cams .btn.small{padding:5px 9px;font-size:13px}.cams [data-snap]{display:none}}
 .view3d{position:relative;max-width:980px;margin:0 auto;height:calc(100vh - 240px);min-height:380px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:var(--bg)}
 .view3d[hidden],.planwrap[hidden],.photov[hidden]{display:none}
@@ -93,7 +94,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .pv-angles{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .pv-lbl{font-size:13px;font-weight:650;color:var(--muted)}
 .pv-angles .seg{display:inline-flex;flex-wrap:wrap}
-#realBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+#photoBtn[aria-pressed="true"],#realBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (max-width:860px){.pv-stage{height:56vh;min-height:320px}}
 #c3r{position:absolute;inset:0;width:100%;height:100%;display:block}
 #c3{position:relative;z-index:1;display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
@@ -304,7 +305,7 @@ input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px s
   <section class="panel" id="panel"></section>
   <section class="stage" aria-label="Your room">
     <div class="viewbar"><div class="seg" id="viewSeg"><button type="button" data-v="3d">3D room</button><button type="button" data-v="plan">Floor plan</button><button type="button" data-v="photo">In my photo</button></div>
-      <div class="cams" id="cams"><button type="button" class="btn small" data-cam="corner">Corner</button><button type="button" class="btn small" data-cam="top">Overhead</button><button type="button" class="btn small" data-cam="eye">Low angle</button><button type="button" class="btn small" id="realBtn" data-real aria-pressed="true">Realistic</button><button type="button" class="btn small" data-snap>Save image</button></div></div>
+      <div class="cams" id="cams"><button type="button" class="btn small" data-cam="corner">Corner</button><button type="button" class="btn small" data-cam="top">Overhead</button><button type="button" class="btn small" data-cam="eye">Low angle</button><span id="angleCams"></span><button type="button" class="btn small" id="photoBtn" data-photoroom aria-pressed="true" hidden>My room photos</button><button type="button" class="btn small" id="realBtn" data-real aria-pressed="true">Realistic</button><button type="button" class="btn small" data-snap>Save image</button></div></div>
     <div class="view3d" id="v3"><canvas id="c3r" aria-hidden="true"></canvas><canvas id="c3" tabindex="0" aria-label="3D view of your room. Drag to look around, drag furniture to move it."></canvas>
       <p class="help3">Drag to look around. Scroll or pinch to zoom. Right-drag or two fingers to pan.</p><div class="card3" id="card3" hidden></div></div>
     <div class="photov" id="pv" hidden>
@@ -1145,7 +1146,9 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#rot')){rotateSel();return}
   const vb=e.target.closest('[data-v]');if(vb){S.view=vb.dataset.v;applyView();renderBar();return}
   const cb=e.target.closest('[data-cam]');if(cb){G3.cam(cb.dataset.cam);return}
-  if(e.target.closest('[data-real]')){S.real=S.real===false;applyView();G3.redraw();return}
+  if(e.target.closest('[data-real]')){S.real=S.real===false;applyView();window.FR_REAL&&FR_REAL.dirty3d();G3.redraw();return}
+  if(e.target.closest('[data-photoroom]')){S.photoRoom=!(window.FR_REAL&&FR_REAL.photoRoomOn());if(S.photoRoom)S.real=true;applyView();FR_REAL.dirty3d();G3.redraw();return}
+  const fa=e.target.closest('[data-fly]');if(fa){window.FR_REAL&&FR_REAL.flyTo(+fa.dataset.fly);return}
   if(e.target.closest('[data-snap]')){window.FR_REAL&&FR_REAL.snap3d();return}
   if(e.target.closest('#clearPics')){S.photos=[];S.photoStyle=null;S.photoWhy='';markDirty();render();return}
   if(e.target.closest('#reset')){S.layout=makeLayout();S.sel=null;render();return}
@@ -1481,9 +1484,10 @@ void main(){
   new ResizeObserver(()=>kick()).observe(wrap);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>kick());
   /* stand at a spot (e.g. where a room photo was taken) and look at t; dragging then turns around t */
-  function lookFrom(e,t){fit();const d=sub(e,t),r=Math.max(60,Math.hypot(...d));
-    const ph=clamp(Math.acos(clamp(d[1]/r,-1,1)),.02,1.5),th=Math.atan2(d[0],d[2]);
-    Object.assign(cam,{t:[...t],r,ph,th,init:1});Object.assign(want,{t:[...t],r,ph,th});sceneDirty=true;kick()}
+  function lookFrom(e,t,glide){fit();const d=sub(e,t),r=Math.max(60,Math.hypot(...d));
+    const ph=clamp(Math.acos(clamp(d[1]/r,-1,1)),.02,1.5);let th=Math.atan2(d[0],d[2]);
+    if(glide){th+=Math.round((cam.th-th)/(2*Math.PI))*2*Math.PI;Object.assign(want,{t:[...t],r,ph,th})}
+    else{Object.assign(cam,{t:[...t],r,ph,th,init:1});Object.assign(want,{t:[...t],r,ph,th})}sceneDirty=true;kick()}
   return{ok:true,build(){fit();sceneDirty=true;updateCard();kick()},show(){fit();sceneDirty=true;updateCard();kick()},redraw(sync){sceneDirty=true;if(sync){raf&&cancelAnimationFrame(raf);raf=0;frame()}else kick()},cam:presets,lookFrom,test:()=>({list:list.length,eye,cam:{...cam}})};
 })();
 
@@ -1632,6 +1636,8 @@ document.addEventListener('fitroom-photo',()=>{if(S.step===1)render()});
 function applyView(){if(S.step===4||(!G3.ok&&S.view==='3d'))S.view='plan';
   $('#v3').hidden=S.view!=='3d';$('#pw').hidden=S.view!=='plan';$('#pv').hidden=S.view!=='photo';$('#cams').style.visibility=S.view==='3d'?'visible':'hidden';
   const rb=$('#realBtn');if(rb){const ok=!!(window.FR_REAL&&FR_REAL.ok);rb.hidden=!ok;rb.setAttribute('aria-pressed',S.real!==false);document.querySelector('[data-snap]').hidden=!ok||S.real===false}
+  const pr=$('#photoBtn'),n=window.FR_REAL&&FR_REAL.ok?FR_REAL.photoCount():0;if(pr){pr.hidden=!n;pr.setAttribute('aria-pressed',!!(n&&FR_REAL.photoRoomOn()))}
+  const ac=$('#angleCams');if(ac){const ws=n&&FR_REAL.photoRoomOn()?FR_REAL.shotWalls():[];ac.innerHTML=ws.map((w,i)=>`<button type="button" class="btn small" data-fly="${i}" title="Glide to where photo ${i+1} was taken">Angle ${i+1}</button>`).join('')}
   const pb=document.querySelector('[data-v="photo"]');if(pb){pb.disabled=!(window.FR_REAL&&FR_REAL.ok);pb.title=pb.disabled?'Loading the realistic renderer…':''}
   document.querySelectorAll('[data-v]').forEach(b=>{b.classList.toggle('on',b.dataset.v===S.view);b.setAttribute('aria-pressed',b.dataset.v===S.view)});
   if(!G3.ok){const b=document.querySelector('[data-v="3d"]');b.disabled=true;b.title='3D needs WebGL, which is turned off in this browser'}

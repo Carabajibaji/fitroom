@@ -533,23 +533,25 @@ class FurnitureSync {
 
 /* ---------------- room shell for the 3D view ---------------- */
 const LOOK = () => ROOMLOOK;
-function buildRoom(group, Wd, Ld, door, win, style, hid) {
+function buildRoom(group, Wd, Ld, door, win, style, hid, solid) {
   group.clear();
   const look = (LOOK()[style] || LOOK().japandi), t = 5, Hh = 96, concrete = look.mode === 3;
   const ft = floorTex(look.floor, concrete).clone(); ft.needsUpdate = true; const span = ft.userData.span; ft.repeat.set((Wd + 2 * t) / span[0], (Ld + 2 * t) / span[1]);
   const floor = new THREE.Mesh(new THREE.BoxGeometry(Wd + 2 * t, 2, Ld + 2 * t), [matMatte('#8b8378'), matMatte('#8b8378'), new THREE.MeshPhysicalMaterial({ map: ft, roughness: concrete ? .78 : .42, clearcoat: concrete ? 0 : .35, clearcoatRoughness: .3, bumpMap: ft, bumpScale: .4 }), matMatte('#8b8378'), matMatte('#8b8378'), matMatte('#8b8378')]);
-  floor.position.set(Wd / 2, -1, Ld / 2); floor.receiveShadow = true; group.add(floor);
+  floor.position.set(Wd / 2, -1, Ld / 2); floor.receiveShadow = true; floor.userData.surf = 'floor'; floor.userData.base = look.floor; group.add(floor);
   const wallM = M('wall' + look.wall, () => new THREE.MeshStandardMaterial({ color: col(look.wall), roughness: .93 })), trim = matPaint('#F3F1EC');
   const caster = M('caster', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
   const box = (x, y, z, sx, sy, sz, m, shadowOnly) => {
     const b = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m); b.position.set(x, y + sy / 2, z); b.castShadow = true; b.receiveShadow = !shadowOnly;
+    /* surfaces that can show the user's own room photos; everything else (trim, door, window) is a "fixture" hidden then */
+    if (m === wallM) { b.userData.surf = 'wall'; b.userData.base = look.wall; } else if (!shadowOnly) b.userData.fix = true;
     if (shadowOnly) b.layers.set(1); group.add(b); return b;
   };
   let winInfo = null;
   for (const wall of ['N', 'S', 'W', 'E']) {
     const hz = wall === 'N' || wall === 'S', len = hz ? Wd : Ld, cut = hid[wall], ops = [];
-    if (wall === door) ops.push([12, 46, 0, 80]);
-    if (win === wall) { const wl = Math.min(60, len * .4), c = win === door ? len * .65 : len / 2; ops.push([c - wl / 2, c + wl / 2, 30, 78]); }
+    if (wall === door && !solid) ops.push([12, 46, 0, 80]);
+    if (win === wall && !solid) { const wl = Math.min(60, len * .4), c = win === door ? len * .65 : len / 2; ops.push([c - wl / 2, c + wl / 2, 30, 78]); }
     const cuts = [-t, len + t, ...ops.flatMap(o => [o[0], o[1]])].sort((a, b) => a - b);
     const put = (p, q, y0, y1, m, so) => {
       if (y1 - y0 < .05 || q - p < .05) return; const mid = (p + q) / 2;
@@ -575,10 +577,10 @@ function buildRoom(group, Wd, Ld, door, win, style, hid) {
         const g = A(c, 30, wl, 48, .3, matGlass('#cfe2ec')); g.castShadow = false;
         const sky = new THREE.Mesh(new THREE.PlaneGeometry(wl + 40, 80), new THREE.MeshBasicMaterial({ map: skyTex(), toneMapped: false }));
         const pos = new THREE.Vector3(...winInfo.pos).add(new THREE.Vector3(...out).multiplyScalar(t / 2 + 7)); sky.position.set(pos.x, 50, pos.z);
-        sky.lookAt(pos.x - out[0], 50, pos.z - out[2]); group.add(sky);
+        sky.lookAt(pos.x - out[0], 50, pos.z - out[2]); sky.userData.fix = true; group.add(sky);
       }
     }
-    if (wall === door && !cut) { /* casing */
+    if (wall === door && !cut && !solid) { /* casing */
       const z = wall === 'N' ? .4 : wall === 'S' ? Ld - .4 : 0, x = wall === 'W' ? .4 : wall === 'E' ? Wd - .4 : 0;
       const A = (u, y, sx, sy, sz) => hz ? box(u, y, z, sx, sy, sz, trim) : box(x, y, u, sz, sy, sx, trim);
       A(11, 0, 2.6, 82, 1.2); A(47, 0, 2.6, 82, 1.2); A(29, 80, 38.6, 2.6, 1.2);
@@ -586,7 +588,7 @@ function buildRoom(group, Wd, Ld, door, win, style, hid) {
   }
   /* closed door leaf, set inside its opening (12"–46" along the wall), slightly recessed from the room face.
      Skipped when that wall is cut away for the view, so it never stands loose in the room. */
-  if (door && !hid[door]) {
+  if (door && !hid[door] && !solid) {
     const hz = door === 'N' || door === 'S', inw = { N: 1, S: -1, W: 1, E: -1 }[door];   // direction into the room
     const face = { N: 0, S: Ld, W: 0, E: Wd }[door], mid = face - inw * 1.6;              // leaf center, inside the wall
     const A = (u, y, along, sy, thick, off, m) => { const n = mid + inw * off; return hz ? box(u, y, n, along, sy, thick, m) : box(n, y, u, thick, sy, along, m); };
@@ -594,9 +596,40 @@ function buildRoom(group, Wd, Ld, door, win, style, hid) {
     A(29, 0, 33.6, 79.6, 1.75, 0, leaf);
     A(29, 44, 25, 30, .35, 1.0, pnl); A(29, 8, 25, 30, .35, 1.0, pnl);                     // two raised panels on the room side
     const knob = new THREE.Mesh(new THREE.SphereGeometry(1.15, 16, 12), matMetal('#B08A4A')), kn = mid + inw * 2.2;
-    knob.position.set(hz ? 42.5 : kn, 36, hz ? kn : 42.5); knob.castShadow = true; group.add(knob);
+    knob.position.set(hz ? 42.5 : kn, 36, hz ? kn : 42.5); knob.castShadow = true; knob.userData.fix = true; group.add(knob);
   }
   return winInfo;
+}
+
+/* ---------------- the user's own room photos, painted onto the 3D floor and walls ----------------
+   Each lined-up photo is a camera we know (from its 4 floor dots). Every floor/wall point is projected
+   into each photo; points a photo sees face-on get more of that photo. Spots no photo saw stay plain. */
+const NPH = 3;
+function photoRoomMat(list, base) {
+  const u = { uBase: { value: col(base) } };
+  for (let i = 0; i < NPH; i++) {
+    const p = list[i];
+    u['uT' + i] = { value: p ? p.tex : null }; u['uM' + i] = { value: p ? p.M : new THREE.Matrix4() };
+    u['uC' + i] = { value: p ? p.cam : new THREE.Vector3() }; u['uOn' + i] = { value: p ? 1 : 0 };
+  }
+  const smp = i => `if (uOn${i} > .5) { vec4 c = uM${i} * vec4(vW, 1.); if (c.w > 0.) { vec2 q = c.xy / c.w * .5 + .5;
+      if (q.x > 0. && q.x < 1. && q.y > 0. && q.y < 1.) { float e = smoothstep(0., .035, min(min(q.x, 1. - q.x), min(q.y, 1. - q.y)));
+        float f = dot(n, normalize(uC${i} - vW)); if (f > 0.) { float w = e * pow(f, 1.5); acc += texture2D(uT${i}, q).rgb * w; ws += w; } } } }`;
+  return new THREE.ShaderMaterial({
+    uniforms: u,
+    vertexShader: `varying vec3 vW; varying vec3 vN;
+      void main() { vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform vec3 uBase; ${[...Array(NPH).keys()].map(i => `uniform sampler2D uT${i}; uniform mat4 uM${i}; uniform vec3 uC${i}; uniform float uOn${i};`).join(' ')}
+      varying vec3 vW; varying vec3 vN;
+      void main() { vec3 n = normalize(vN), acc = vec3(0.); float ws = 0.;
+        ${[...Array(NPH).keys()].map(smp).join('\n')}
+        vec3 plain = uBase * (.62 + .38 * max(dot(n, normalize(vec3(.3, 1., .4))), 0.));
+        vec3 c = mix(plain, ws > 0. ? acc / ws : plain, clamp(ws * 4., 0., 1.));
+        gl_FragColor = vec4(c, 1.);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`
+  });
 }
 
 /* ---------------- realistic 3D view ---------------- */
@@ -626,9 +659,21 @@ class Real3D {
   }
   sync(hid) {
     const Lay = S.layout, on = S.step === 3 && Lay && Lay.type === S.room.type, style = on ? Lay.style : effStyle();
-    const Wd = roomW(), Ld = roomL(), sig = [Wd, Ld, S.room.door, S.room.window, style, JSON.stringify(hid), cssVar('--bg')].join();
+    const pl = photoRoomOn() ? PV.projections() : [], pk = pl.map(p => p.key).join('|');
+    const Wd = roomW(), Ld = roomL(), sig = [Wd, Ld, S.room.door, S.room.window, style, JSON.stringify(hid), cssVar('--bg'), pk].join();
     if (sig !== this.roomSig) {
-      this.roomSig = sig; const wi = buildRoom(this.room, Wd, Ld, S.room.door, S.room.window, style, hid);
+      this.roomSig = sig; const wi = buildRoom(this.room, Wd, Ld, S.room.door, S.room.window, style, hid, pl.length > 0);
+      if (pl.length) {
+        /* swap floor and walls to the photo material, hide trim/door/window (the photos show the real ones),
+           and lay a shadow catcher on the floor so furniture still sits on it */
+        const mats = {};
+        this.room.traverse(o => {
+          if (o.userData.fix) o.visible = false;
+          if (o.userData.surf) { const b = o.userData.base; o.material = mats[b] || (mats[b] = photoRoomMat(pl, b)); }
+        });
+        const sh = new THREE.Mesh(new THREE.PlaneGeometry(Wd, Ld), new THREE.ShadowMaterial({ opacity: .38 }));
+        sh.rotation.x = -Math.PI / 2; sh.position.set(Wd / 2, .06, Ld / 2); sh.receiveShadow = true; this.room.add(sh);
+      }
       const ctr = new THREE.Vector3(Wd / 2, 0, Ld / 2), m = Math.max(Wd, Ld), sc = this.sun.shadow.camera;
       if (wi) { const o = new THREE.Vector3(...wi.out); this.sun.position.set(wi.pos[0], 0, wi.pos[2]).addScaledVector(o, 210).add(new THREE.Vector3(0, 190, 0)).addScaledVector(new THREE.Vector3(o.z, 0, -o.x), 70); this.sun.intensity = 4.6; }
       else { this.sun.position.set(Wd * .2, 260, Ld * .9); this.sun.intensity = 2.2; }
@@ -690,7 +735,8 @@ class PhotoView {
       if (e.target.id === 'pvLens') { this.ph.lens = e.target.value; this.solve(); this.paint(); }
     });
     this.el.addEventListener('click', e => {
-      if (e.target.closest('#pvAlign')) { this.ph.mode = this.ph.mode === 'align' ? 'place' : 'align'; if (this.ph.mode === 'align') { S.sel = null; } this.bars(); this.paint(); }
+      if (e.target.closest('#pvAlign')) { this.ph.mode = this.ph.mode === 'align' ? 'place' : 'align'; if (this.ph.mode === 'align') { S.sel = null; } else { this.ph.done = true; if (R3) R3.dirty = true; } this.bars(); this.paint(); }
+      if (e.target.closest('#pvBird')) this.birdsEye();
       if (e.target.closest('#pvSave')) this.save();
       if (e.target.closest('#pvUseFit')) this.setPhoto(S.fit.photo);
       if (e.target.closest('#pvLook')) this.lookFrom3D();
@@ -740,12 +786,47 @@ class PhotoView {
   /* open the 3D room from the spot where the photo was taken, so the user can turn and look past whatever blocks the photo */
   lookFrom3D() {
     const s = this.sol; if (!s || !s.ok || typeof G3 === 'undefined' || !G3.ok) return;
+    this.ph.done = true; S.photoRoom = true; S.real = true; if (R3) R3.dirty = true;
     this.placeWorld();
     /* keep the standing spot inside the room (or just in the doorway) at eye height, even if the photo's numbers are rough */
     const Wm = this.wallWidth(), Dm = this.wallDepth(), eF = new THREE.Vector3(clamp(s.camX, 6, Wm - 6), clamp(s.camH, 36, 72), clamp(s.camY, 24, Dm + 6));
     const tF = new THREE.Vector3(clamp(s.camX, 0, Wm), 26, eF.z * .4);
     const e = this.world.worldToLocal(eF), t = this.world.worldToLocal(tF);
     S.view = '3d'; applyView(); renderBar(); G3.lookFrom([e.x, e.y, e.z], [t.x, t.y, t.z]);
+  }
+  /* where shot i's camera stood, in room coordinates (eye, and a point it looks toward) */
+  standing(shot) {
+    const s = shot.sol, ww = shot.wall, hz = ww === 'N' || ww === 'S', Wm = hz ? roomW() : roomL(), Dm = hz ? roomL() : roomW();
+    const eF = new THREE.Vector3(clamp(s.camX, 6, Wm - 6), clamp(s.camH, 36, 72), clamp(s.camY, 24, Dm + 6)), tF = new THREE.Vector3(clamp(s.camX, 0, Wm), 26, eF.z * .4);
+    const inv = this.frameOf(ww).invert(); return [eF.applyMatrix4(inv), tF.applyMatrix4(inv)];
+  }
+  /* room coords -> this photo's floor frame (x along the facing wall, z toward the camera) */
+  frameOf(ww) {
+    const W = roomW(), L = roomL(), o = new THREE.Object3D();
+    o.rotation.y = { N: 0, E: Math.PI / 2, S: Math.PI, W: -Math.PI / 2 }[ww]; const pos = { N: [0, 0], E: [0, W], S: [W, L], W: [L, 0] }[ww];
+    o.position.set(pos[0], 0, pos[1]); o.updateMatrix(); return o.matrix.clone();
+  }
+  /* every lined-up photo as a projector: texture, room -> photo clip matrix, camera position */
+  projections() {
+    const out = [];
+    for (const sh of this.shots) {
+      const s = sh.sol; if (!sh.done || !s || !s.ok) continue;
+      const key = [sh.src.length, sh.src.slice(-40), sh.wall, sh.lens, JSON.stringify(sh.pts), roomW(), roomL()].join();
+      if (sh.pkey !== key) {
+        const { r1, r2, up, t } = s, V = new THREE.Matrix4().set(r1[0], up[0], r2[0], t[0], -r1[1], -up[1], -r2[1], -t[1], -r1[2], -up[2], -r2[2], -t[2], 0, 0, 0, 1);
+        const P = new THREE.PerspectiveCamera(2 * Math.atan(sh.h / 2 / s.f) * 180 / Math.PI, sh.w / sh.h, 2, 6000).projectionMatrix;
+        const VW = V.clone().multiply(this.frameOf(sh.wall));
+        if (!sh.tex) { sh.tex = new THREE.Texture(sh.im); sh.tex.colorSpace = THREE.SRGBColorSpace; sh.tex.anisotropy = 4; sh.tex.needsUpdate = true; }
+        sh.proj = { key, tex: sh.tex, M: P.clone().multiply(VW), cam: new THREE.Vector3().applyMatrix4(VW.clone().invert()) }; sh.pkey = key;
+      }
+      out.push(sh.proj); if (out.length === NPH) break;
+    }
+    return out;
+  }
+  /* jump to the 3D room with the photos on, seen from above */
+  birdsEye() {
+    if (this.ph && this.sol && this.sol.ok) this.ph.done = true;
+    S.photoRoom = true; S.real = true; S.view = '3d'; applyView(); renderBar(); if (R3) R3.dirty = true; G3.cam('corner');
   }
   light(im) { /* read the photo's brightness and color cast so the furniture is lit to match */
     const n = 48, c = canvasOf(n, n), x = c.getContext('2d'); x.drawImage(im, 0, 0, n, n); let d; try { d = x.getImageData(0, 0, n, n).data; } catch (e) { return; }
@@ -758,7 +839,8 @@ class PhotoView {
   wallWidth() { const w = this.ph.wall; return w === 'N' || w === 'S' ? roomW() : roomL(); }
   wallDepth() { const w = this.ph.wall; return w === 'N' || w === 'S' ? roomL() : roomW(); }
   solve() {
-    const p = this.ph; if (!p) return; this.sol = solveFloor(p.pts.map(([x, y]) => [x * p.w, y * p.h]), p.w, p.h, this.wallWidth(), p.lens);
+    const p = this.ph; if (!p) return; this.sol = p.sol = solveFloor(p.pts.map(([x, y]) => [x * p.w, y * p.h]), p.w, p.h, this.wallWidth(), p.lens);
+    if (R3) R3.dirty = true;
   }
   bars() {
     const p = this.ph, hasFit = S.fit && S.fit.photo;
@@ -772,6 +854,7 @@ class PhotoView {
         ${this.shots.length > 1 ? '<button type="button" class="btn small" id="pvDrop">Remove this angle</button>' : ''}</div>
       <label class="btn small"><input type="file" accept="image/*" id="pvFile" hidden>Change photo</label>
       <button type="button" class="btn small${p.mode === 'align' ? ' primary' : ''}" id="pvAlign">${p.mode === 'align' ? 'Done, place furniture' : 'Line up the floor'}</button>
+      <button type="button" class="btn small" id="pvBird" title="Your photos painted onto the 3D room. Pinch to zoom, drag to turn, two fingers to move.">Bird's-eye view of my room</button>
       <button type="button" class="btn small" id="pvLook" title="Opens the 3D room from where you stood. Drag to turn and look past anything blocking the photo.">Look around from here in 3D</button>
       <label class="pv-sel"><span>Wall you're facing</span><select id="pvWall">${['N', 'E', 'S', 'W'].map(opt).join('')}</select></label>
       <label class="pv-sel"><span>Lens</span><select id="pvLens"><option value="auto"${p.lens === 'auto' ? ' selected' : ''}>Auto</option><option value="wide"${p.lens === 'wide' ? ' selected' : ''}>1x</option><option value="ultra"${p.lens === 'ultra' ? ' selected' : ''}>0.5x</option></select></label>
@@ -900,6 +983,7 @@ function download(url, name) { const a = document.createElement('a'); a.href = u
 
 /* ---------------- public API used by index.html ---------------- */
 let R3 = null, PV = null;
+const photoRoomOn = () => S.photoRoom !== false && S.real !== false && !!PV && PV.projections().length > 0;
 const api = {
   ok: false,
   on3d() { return !!R3 && S.real !== false; },
@@ -910,6 +994,11 @@ const api = {
   photoSync() { if (PV && PV.ph) PV.paint(); },
   photoSet(src) { if (PV) PV.setPhoto(src); },
   hasPhoto() { return !!(PV && PV.ph); },
+  photoCount() { return PV ? PV.projections().length : 0; },
+  photoRoomOn: () => photoRoomOn(),
+  /* glide the 3D camera to where photo angle i was taken */
+  flyTo(i) { const sh = PV && PV.shots.filter(x => x.done && x.sol && x.sol.ok)[i]; if (!sh) return; const [e, t] = PV.standing(sh); G3.lookFrom([e.x, e.y, e.z], [t.x, t.y, t.z], true); },
+  shotWalls() { return PV ? PV.shots.filter(x => x.done && x.sol && x.sol.ok).map(x => x.wall) : []; },
   _pv: () => PV, _r3: () => R3
 };
 try {
