@@ -792,7 +792,7 @@ class PhotoView {
     const Wm = this.wallWidth(), Dm = this.wallDepth(), eF = new THREE.Vector3(clamp(s.camX, 6, Wm - 6), clamp(s.camH, 36, 72), clamp(s.camY, 24, Dm + 6));
     const tF = new THREE.Vector3(clamp(s.camX, 0, Wm), 26, eF.z * .4);
     const e = this.world.worldToLocal(eF), t = this.world.worldToLocal(tF);
-    S.view = '3d'; applyView(); renderBar(); G3.lookFrom([e.x, e.y, e.z], [t.x, t.y, t.z]);
+    S.view = '3d'; applyView(); renderBar(); const w = this.wide(e, t); G3.lookFrom(w[0], w[1]);
   }
   /* where shot i's camera stood, in room coordinates (eye, and a point it looks toward) */
   standing(shot) {
@@ -800,6 +800,8 @@ class PhotoView {
     const eF = new THREE.Vector3(clamp(s.camX, 6, Wm - 6), clamp(s.camH, 36, 72), clamp(s.camY, 24, Dm + 6)), tF = new THREE.Vector3(clamp(s.camX, 0, Wm), 26, eF.z * .4);
     const inv = this.frameOf(ww).invert(); return [eF.applyMatrix4(inv), tF.applyMatrix4(inv)];
   }
+  /* pull a standing view back and up a little, so more of the room fits on screen */
+  wide(e, t) { const d = e.clone().sub(t); return [[t.x + d.x * 1.6, Math.min(e.y + 30, 110), t.z + d.z * 1.6], [t.x, t.y, t.z]]; }
   /* room coords -> this photo's floor frame (x along the facing wall, z toward the camera) */
   frameOf(ww) {
     const W = roomW(), L = roomL(), o = new THREE.Object3D();
@@ -997,7 +999,7 @@ const api = {
   photoCount() { return PV ? PV.projections().length : 0; },
   photoRoomOn: () => photoRoomOn(),
   /* glide the 3D camera to where photo angle i was taken */
-  flyTo(i) { const sh = PV && PV.shots.filter(x => x.done && x.sol && x.sol.ok)[i]; if (!sh) return; const [e, t] = PV.standing(sh); G3.lookFrom([e.x, e.y, e.z], [t.x, t.y, t.z], true); },
+  flyTo(i) { const sh = PV && PV.shots.filter(x => x.done && x.sol && x.sol.ok)[i]; if (!sh) return; const [e, t] = PV.standing(sh), w = PV.wide(e, t); G3.lookFrom(w[0], w[1], true); },
   shotWalls() { return PV ? PV.shots.filter(x => x.done && x.sol && x.sol.ok).map(x => x.wall) : []; },
   _pv: () => PV, _r3: () => R3
 };
