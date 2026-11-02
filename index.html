@@ -313,7 +313,8 @@ input[type=url],input[type=text]{width:100%;background:var(--floor);border:1px s
 .budgetnote{font-size:14px;font-weight:600;color:var(--fit);margin:6px 0}.budgetnote.over{color:var(--warn)}
 .storechips{display:flex;flex-wrap:wrap;gap:6px}.storechips .idea small{color:var(--muted);font-weight:500;margin-left:2px}
 .storechips .idea.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}.storechips .idea.on small{color:inherit;opacity:.7}
-.storebox{margin:8px 0}.storebox summary{cursor:pointer;font-weight:650;font-size:14px}
+.storebox{margin:8px 0}
+.inapp #getApp,.inapp .appcard:not(.photocard),.inapp #printBuild{display:none !important}.storebox summary{cursor:pointer;font-weight:650;font-size:14px}
 .chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;padding:10px 0;border-top:1px solid var(--line);cursor:pointer}.chk input{margin-top:3px}
 .dragb{cursor:grab}.dragb:active{cursor:grabbing}
 #addObs{margin-top:4px}
@@ -1483,6 +1484,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest('#askAI')){askAI();return}
   if(e.target.closest('#getApp')||e.target.closest('[data-app]')){appInfo();return}
   if(e.target.closest('[data-scan]')){S.fitBack=S.step===4;startScan();return}
+  if(e.target.closest('[data-nscan]')){S.fitBack=S.step===4;appSend({type:'scan'});return}
   const qr=e.target.closest('[data-qr]');if(qr){qrDlg(qr.dataset.qr);return}
   if(e.target.closest('#scanClose')){stopScan();return}
   if(e.target.closest('#scanUndo')){scanUndo();return}
@@ -1928,7 +1930,43 @@ const ON_PHONE=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator
 const CAN_SCAN_HERE=/(^|\.)(github\.io|app\.github\.dev)$/.test(location.hostname)||location.hostname==='localhost'||(!!SITE_URL&&location.href.startsWith(SITE_URL));
 const XR_SRC='https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js';
 const THREE_SRC='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+/* ---------- Inside the Fitroom iPhone app: the app's own scanner replaces the web one ---------- */
+const IN_APP=!!(window.FITROOM_APP&&window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.fitroom);
+if(IN_APP)document.documentElement.classList.add('inapp');
+function appSend(m){try{window.webkit.messageHandlers.fitroom.postMessage(m)}catch(e){}}
+/* Called by the app when a scan finishes. LiDAR scans include every wall, door and window as a line
+   on the floor (inches, longest wall left to right, room starting at 0,0), so the real shape comes through. */
+window.fitroomApplyScan=function(d){
+  const IN=39.3701,P=d&&d.plan,r=Math.round;let W,L,note='',nd=0,nw=0;
+  if(P&&P.walls&&P.walls.length>=3){
+    let pts=P.walls.flatMap(w=>[[w[0],w[1]],[w[2],w[3]]]);const mx=Math.min(...pts.map(p=>p[0])),my=Math.min(...pts.map(p=>p[1]));
+    const sh=a=>[a[0]-mx,a[1]-my,a[2]-mx,a[3]-my],walls=P.walls.map(sh);pts=walls.flatMap(w=>[[w[0],w[1]],[w[2],w[3]]]);
+    W=Math.max(...pts.map(p=>p[0]));L=Math.max(...pts.map(p=>p[1]));
+    const off90=w=>{const a=Math.abs(Math.atan2(w[3]-w[1],w[2]-w[0])*180/Math.PI)%90;return Math.min(a,90-a)};
+    const angled=walls.some(w=>Math.hypot(w[2]-w[0],w[3]-w[1])>18&&off90(w)>6);
+    S.room.lcut=null;
+    if(!angled){const near=(x,y)=>pts.some(p=>Math.hypot(p[0]-x,p[1]-y)<14);
+      const miss=Object.entries({NW:[0,0],NE:[W,0],SW:[0,L],SE:[W,L]}).filter(([,c])=>!near(c[0],c[1]));
+      if(miss.length===1){const [k,c]=miss[0],inner=pts.filter(p=>p[0]>14&&p[0]<W-14&&p[1]>14&&p[1]<L-14);
+        if(inner.length){const dd=p=>Math.hypot(p[0]-c[0],p[1]-c[1]),q=inner.reduce((a,p)=>dd(p)<dd(a)?p:a),cw=Math.abs(c[0]-q[0]),cd=Math.abs(c[1]-q[1]);
+          if(cw>=24&&cd>=24&&cw<W-30&&cd<L-30)S.room.lcut={corner:k,w:r(cw),d:r(cd)}}}}
+    if(angled)note=' Your room has an angled wall. Fitroom uses the box around the room for now, so double-check pieces near that wall.';
+    else if(!S.room.lcut&&walls.length>4)note=' Your room has more than four walls. Fitroom uses the box around it for now; add a cut-out corner or closets below if needed.';
+    /* doors, open doorways and windows: each goes on the nearest outer wall */
+    const snap=sg=>{const s2=sh(sg),cx=(s2[0]+s2[2])/2,cy=(s2[1]+s2[3])/2,len=Math.hypot(s2[2]-s2[0],s2[3]-s2[1]),dd={N:cy,S:L-cy,W:cx,E:W-cx},wall=Object.keys(dd).sort((a,b)=>dd[a]-dd[b])[0];
+      return{wall,len,off:(wall==='N'||wall==='S'?cx:cy)-len/2}};
+    S.room.obs=S.room.obs.filter(o=>o.kind!=='door'&&o.kind!=='window');
+    const ds=[...(P.doors||[]),...(P.openings||[])].map(snap),ws=(P.windows||[]).map(snap);nd=ds.length;nw=ws.length;
+    if(ds.length){S.room.door=ds[0].wall;S.room.doorOff=Math.max(0,r(ds[0].off+(ds[0].len-34)/2))}
+    for(const x of ds.slice(1))S.room.obs.push({kind:'door',wall:x.wall,off:Math.max(0,r(x.off)),w:r(clamp(x.len,24,96)),d:0,h:0});
+    S.room.window=ws.length?ws[0].wall:'none';
+    for(const x of ws.slice(1))S.room.obs.push({kind:'window',wall:x.wall,off:Math.max(0,r(x.off)),w:r(clamp(x.len,12,144)),d:0,h:0});
+  }else{W=d.length*IN;L=d.width*IN}
+  W=clamp(r(W),72,720);L=clamp(r(L),72,720);Object.assign(S.room,{wft:Math.floor(W/12),win:W%12,lft:Math.floor(L/12),lin:L%12});
+  S.scanNote=`Measured with ${d.method==='lidar'?'LiDAR':d.method==='arTap'?'your phone camera':'your numbers'}: ${fmt(W)} × ${fmt(L)}${S.room.lcut?', L-shaped':''}${P?`, ${nd} door${nd===1?'':'s'} and ${nw} window${nw===1?'':'s'}`:'. Check the door and window walls below'}.`+note;
+  markDirty();S.extra=[];S.step=S.fitBack?4:1;S.fitBack=false;S.view='plan';render();window.scrollTo({top:0});panel.scrollTop=0};
 function scanBtn(){
+  if(IN_APP&&window.FITROOM_APP.scan)return`<button type="button" class="btn primary" data-nscan="1">${window.FITROOM_APP.lidar?'Scan my room (LiDAR)':'Measure my room with the camera'}</button>`;
   if(CAN_SCAN_HERE&&ON_PHONE)return`<button type="button" class="btn primary" data-scan="1">Scan my room with the camera</button>`;
   if(CAN_SCAN_HERE)return`<button type="button" class="btn" data-qr="${esc(location.href.split('#')[0])}">Scan with your phone</button>`;
   if(SITE_URL)return ON_PHONE?`<a class="btn primary" href="${esc(SITE_URL)}" target="_blank" rel="noopener">Open the scanner</a>`:`<button type="button" class="btn" data-qr="${esc(SITE_URL)}">Scan with your phone</button>`;
