@@ -465,7 +465,7 @@ function realLook(p) {
 
 /* Build one layout item as a Group: origin at the piece's center on the floor, back toward -z */
 function makeItem(it, style, opts = {}) {
-  const p = it.p, cat = it.grp, r = it.r, th = { N: 0, S: Math.PI, W: Math.PI / 2, E: -Math.PI / 2 }[it.back] || 0, side = Math.abs(Math.sin(th)) > .5;
+  const p = it.p, cat = catOf(it), r = it.r, th = { N: 0, S: Math.PI, W: Math.PI / 2, E: -Math.PI / 2 }[it.back] || 0, side = Math.abs(Math.sin(th)) > .5;
   const w = side ? r.h : r.w, d = side ? r.w : r.h, look = realLook(p), pal = look.pal, base = look.base;
   const g = new THREE.Group(), K = kit(g), c = { w, d, p, pal, base, style: p.style, isWood: look.isWood, leather: look.leather, plainRug: look.plainRug }, rr = rng(hashStr(p.id + cat));
   switch (cat) {
@@ -536,9 +536,11 @@ const LOOK = () => ROOMLOOK;
 function buildRoom(group, Wd, Ld, door, win, style, hid, solid) {
   group.clear();
   const look = (LOOK()[style] || LOOK().japandi), t = 5, Hh = 96, concrete = look.mode === 3;
-  const ft = floorTex(look.floor, concrete).clone(); ft.needsUpdate = true; const span = ft.userData.span; ft.repeat.set((Wd + 2 * t) / span[0], (Ld + 2 * t) / span[1]);
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(Wd + 2 * t, 2, Ld + 2 * t), [matMatte('#8b8378'), matMatte('#8b8378'), new THREE.MeshPhysicalMaterial({ map: ft, roughness: concrete ? .78 : .42, clearcoat: concrete ? 0 : .35, clearcoatRoughness: .3, bumpMap: ft, bumpScale: .4 }), matMatte('#8b8378'), matMatte('#8b8378'), matMatte('#8b8378')]);
-  floor.position.set(Wd / 2, -1, Ld / 2); floor.receiveShadow = true; floor.userData.surf = 'floor'; floor.userData.base = look.floor; group.add(floor);
+  for (const f of floorRects(t)) { /* one slab, or two for an L-shaped room; the texture keeps its scale and lines up across the seam */
+    const ft = floorTex(look.floor, concrete).clone(); ft.needsUpdate = true; const span = ft.userData.span; ft.repeat.set(f.w / span[0], f.h / span[1]); ft.offset.set((f.x + t) / span[0], -(f.y + t) / span[1]);
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(f.w, 2, f.h), [matMatte('#8b8378'), matMatte('#8b8378'), new THREE.MeshPhysicalMaterial({ map: ft, roughness: concrete ? .78 : .42, clearcoat: concrete ? 0 : .35, clearcoatRoughness: .3, bumpMap: ft, bumpScale: .4 }), matMatte('#8b8378'), matMatte('#8b8378'), matMatte('#8b8378')]);
+    floor.position.set(f.x + f.w / 2, -1, f.y + f.h / 2); floor.receiveShadow = true; floor.userData.surf = 'floor'; floor.userData.base = look.floor; group.add(floor);
+  }
   const wallM = M('wall' + look.wall, () => new THREE.MeshStandardMaterial({ color: col(look.wall), roughness: .93 })), trim = matPaint('#F3F1EC');
   const caster = M('caster', () => new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
   const box = (x, y, z, sx, sy, sz, m, shadowOnly) => {
@@ -547,11 +549,12 @@ function buildRoom(group, Wd, Ld, door, win, style, hid, solid) {
     if (m === wallM) { b.userData.surf = 'wall'; b.userData.base = look.wall; } else if (!shadowOnly) b.userData.fix = true;
     if (shadowOnly) b.layers.set(1); group.add(b); return b;
   };
-  let winInfo = null;
+  let winInfo = null; const da = doorA(), lg = lcutGeo();
   for (const wall of ['N', 'S', 'W', 'E']) {
-    const hz = wall === 'N' || wall === 'S', len = hz ? Wd : Ld, cut = hid[wall], ops = [];
-    if (wall === door && !solid) ops.push([12, 46, 0, 80]);
-    if (win === wall && !solid) { const wl = Math.min(60, len * .4), c = win === door ? len * .65 : len / 2; ops.push([c - wl / 2, c + wl / 2, 30, 78]); }
+    const hz = wall === 'N' || wall === 'S', len = hz ? Wd : Ld, cut = hid[wall], ops = [], sk = lg && lg.skip[wall];
+    if (sk) ops.push([sk[0], sk[1], 0, 1e4]);
+    if (wall === door && !solid) ops.push([da, da + 34, 0, 80]);
+    if (win === wall && !solid) { const [a, b] = winSpan(wall); ops.push([a, b, 30, 78]); }
     const cuts = [-t, len + t, ...ops.flatMap(o => [o[0], o[1]])].sort((a, b) => a - b);
     const put = (p, q, y0, y1, m, so) => {
       if (y1 - y0 < .05 || q - p < .05) return; const mid = (p + q) / 2;
@@ -583,7 +586,7 @@ function buildRoom(group, Wd, Ld, door, win, style, hid, solid) {
     if (wall === door && !cut && !solid) { /* casing */
       const z = wall === 'N' ? .4 : wall === 'S' ? Ld - .4 : 0, x = wall === 'W' ? .4 : wall === 'E' ? Wd - .4 : 0;
       const A = (u, y, sx, sy, sz) => hz ? box(u, y, z, sx, sy, sz, trim) : box(x, y, u, sz, sy, sx, trim);
-      A(11, 0, 2.6, 82, 1.2); A(47, 0, 2.6, 82, 1.2); A(29, 80, 38.6, 2.6, 1.2);
+      A(da - 1, 0, 2.6, 82, 1.2); A(da + 35, 0, 2.6, 82, 1.2); A(da + 17, 80, 38.6, 2.6, 1.2);
     }
   }
   /* closed door leaf, set inside its opening (12"–46" along the wall), slightly recessed from the room face.
@@ -593,10 +596,36 @@ function buildRoom(group, Wd, Ld, door, win, style, hid, solid) {
     const face = { N: 0, S: Ld, W: 0, E: Wd }[door], mid = face - inw * 1.6;              // leaf center, inside the wall
     const A = (u, y, along, sy, thick, off, m) => { const n = mid + inw * off; return hz ? box(u, y, n, along, sy, thick, m) : box(n, y, u, thick, sy, along, m); };
     const leaf = matPaint('#F1EEE8'), pnl = matPaint('#E9E5DD');
-    A(29, 0, 33.6, 79.6, 1.75, 0, leaf);
-    A(29, 44, 25, 30, .35, 1.0, pnl); A(29, 8, 25, 30, .35, 1.0, pnl);                     // two raised panels on the room side
+    A(da + 17, 0, 33.6, 79.6, 1.75, 0, leaf);
+    A(da + 17, 44, 25, 30, .35, 1.0, pnl); A(da + 17, 8, 25, 30, .35, 1.0, pnl);           // two raised panels on the room side
     const knob = new THREE.Mesh(new THREE.SphereGeometry(1.15, 16, 12), matMetal('#B08A4A')), kn = mid + inw * 2.2;
-    knob.position.set(hz ? 42.5 : kn, 36, hz ? kn : 42.5); knob.castShadow = true; knob.userData.fix = true; group.add(knob);
+    knob.position.set(hz ? da + 30.5 : kn, 36, hz ? kn : da + 30.5); knob.castShadow = true; knob.userData.fix = true; group.add(knob);
+  }
+  /* L-shaped room: the two inner walls along the missing corner (cut low, like other walls, on the camera's side) */
+  if (lg) {
+    const { h, v } = lg;
+    const wall = (cx, cz, sx, sz, out, base) => {
+      for (const [top, m, so] of hid[out] ? [[5, wallM, false], [Hh, caster, true]] : [[Hh, wallM, false]]) box(cx, 0, cz, sx, top, sz, m, so);
+      base();
+    };
+    const hl = h.span[1] - h.span[0], hx = (h.span[0] + h.span[1]) / 2, vl = v.span[1] - v.span[0], vz = (v.span[0] + v.span[1]) / 2;
+    wall(hx, h.out === 'N' ? h.y - t / 2 : h.y + t / 2, hl, t, h.out, () => box(hx, 0, h.out === 'N' ? h.y + .35 : h.y - .35, hl, 4, .7, trim));
+    wall(v.out === 'W' ? v.x - t / 2 : v.x + t / 2, vz, t, vl, v.out, () => box(v.out === 'W' ? v.x + .35 : v.x - .35, 0, vz, .7, 4, vl, trim));
+  }
+  /* built-ins (closet, column, fireplace…): solid blocks, lowered like walls on the camera's side */
+  for (const b of blocks()) {
+    if (b.kind === 'lcut') continue;
+    const near = (b.y <= .5 && hid.N) || (b.y + b.h >= Ld - .5 && hid.S) || (b.x <= .5 && hid.W) || (b.x + b.w >= Wd - .5 && hid.E);
+    const wallish = b.kind === 'lcut' || b.kind === 'column' || b.kind === 'closet', h = near ? Math.min(5, b.ht) : b.ht;
+    const m = wallish ? wallM : b.kind === 'fireplace' ? M('stone', () => new THREE.MeshStandardMaterial({ color: col('#B9B2A8'), roughness: .9 }))
+      : b.kind === 'radiator' ? matPaint('#F2F1EE') : M('blk' + b.kind, () => new THREE.MeshStandardMaterial({ color: col(b.kind === 'stairs' ? '#9C8B78' : '#7D6A58'), roughness: .7 }));
+    box(b.x + b.w / 2, 0, b.y + b.h / 2, b.w, h, b.h, m);
+    if (near) continue;
+    if (b.kind === 'closet' && b.wall) {
+      const hz = b.wall === 'N' || b.wall === 'S', along = hz ? b.w : b.h, n = b.wall === 'N' ? b.y + b.h + .4 : b.wall === 'S' ? b.y - .4 : b.wall === 'W' ? b.x + b.w + .4 : b.x - .4;
+      for (const f of [-.25, .25]) { const u = (hz ? b.x : b.y) + along / 2 + f * along; hz ? box(u, 0, n, along / 2 - 1.5, 80, .8, trim) : box(n, 0, u, .8, 80, along / 2 - 1.5, trim); }
+    }
+    if (b.kind === 'fireplace') box(b.x + b.w / 2, h, b.y + b.h / 2, b.w + 4, 2, b.h + 3, M('mantel', () => new THREE.MeshStandardMaterial({ color: col('#8A6A4E'), roughness: .6 })));
   }
   return winInfo;
 }
@@ -660,7 +689,7 @@ class Real3D {
   sync(hid) {
     const Lay = S.layout, on = S.step === 3 && Lay && Lay.type === S.room.type, style = on ? Lay.style : effStyle();
     const pl = photoRoomOn() ? PV.projections() : [], pk = pl.map(p => p.key).join('|');
-    const Wd = roomW(), Ld = roomL(), sig = [Wd, Ld, S.room.door, S.room.window, style, JSON.stringify(hid), cssVar('--bg'), pk].join();
+    const Wd = roomW(), Ld = roomL(), sig = [Wd, Ld, S.room.door, doorA(), JSON.stringify(blocks()), S.room.window, style, JSON.stringify(hid), cssVar('--bg'), pk].join();
     if (sig !== this.roomSig) {
       this.roomSig = sig; const wi = buildRoom(this.room, Wd, Ld, S.room.door, S.room.window, style, hid, pl.length > 0);
       if (pl.length) {
@@ -956,7 +985,7 @@ class PhotoView {
   floorAt(e) { const rc = this.ray(e), pt = new THREE.Vector3(); if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), pt)) return null; return this.world.worldToLocal(pt); }
   pick(e) {
     const rc = this.ray(e), hits = rc.intersectObjects(this.fs.objects(), true).filter(h => h.object.isMesh && h.object.userData.key && h.object.material.opacity !== 0);
-    const nonRug = hits.find(h => S.layout.items[h.object.userData.key] && S.layout.items[h.object.userData.key].grp !== 'rug'); return (nonRug || hits[0] || {}).object?.userData.key || null;
+    const nonRug = hits.find(h => S.layout.items[h.object.userData.key] && catOf(S.layout.items[h.object.userData.key]) !== 'rug'); return (nonRug || hits[0] || {}).object?.userData.key || null;
   }
   down(e) {
     if (!this.sol || !this.sol.ok || !S.layout || S.step !== 3) return; const k = this.pick(e);
@@ -971,7 +1000,7 @@ class PhotoView {
   }
   updCard() {
     const c = this.card, L = S.layout, it = this.ph && this.ph.mode === 'place' && S.step === 3 && L && S.sel && L.items[S.sel]; if (!it) { c.hidden = true; return; }
-    const p = it.p; c.innerHTML = `<b>${esc(p.name)}</b><span>${CATS[it.grp].label}, ${inch(p.w)} W × ${inch(p.d)} D, ${money(p.price)}</span><a href="${p.url}" target="_blank" rel="noopener">View at ${p.retailer}</a>`; c.hidden = false;
+    const p = it.p; c.innerHTML = `<b>${esc(p.name)}</b><span>${CATS[catOf(it)].label}, ${inch(p.w)} W × ${inch(p.d)} D, ${money(p.price)}</span><a href="${p.url}" target="_blank" rel="noopener">View at ${p.retailer}</a>`; c.hidden = false;
   }
   save() {
     const p = this.ph; if (!p) return; const k = Math.min(1, 2400 / Math.max(p.w, p.h)), W = Math.round(p.w * k), H = Math.round(p.h * k);
