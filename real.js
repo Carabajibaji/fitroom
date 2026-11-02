@@ -553,6 +553,7 @@ function buildRoom(group, Wd, Ld, door, win, style, hid, solid) {
   for (const wall of ['N', 'S', 'W', 'E']) {
     const hz = wall === 'N' || wall === 'S', len = hz ? Wd : Ld, cut = hid[wall], ops = [], sk = lg && lg.skip[wall];
     if (sk) ops.push([sk[0], sk[1], 0, 1e4]);
+    for (const b of blocks()) if (b.wall === wall && !solid && (b.kind === 'door' || b.kind === 'window')) ops.push(b.kind === 'door' ? [b.off, b.off + b.al, 0, 80] : [b.off, b.off + b.al, 30, 78]);
     if (wall === door && !solid) ops.push([da, da + 34, 0, 80]);
     if (win === wall && !solid) { const [a, b] = winSpan(wall); ops.push([a, b, 30, 78]); }
     const cuts = [-t, len + t, ...ops.flatMap(o => [o[0], o[1]])].sort((a, b) => a - b);
@@ -614,10 +615,16 @@ function buildRoom(group, Wd, Ld, door, win, style, hid, solid) {
   }
   /* built-ins (closet, column, fireplace…): solid blocks, lowered like walls on the camera's side */
   for (const b of blocks()) {
-    if (b.kind === 'lcut') continue;
+    if (b.kind === 'lcut' || b.kind === 'door' || b.kind === 'window') continue;
+    if (b.flat) { /* closet or fridge set into the wall: just its doors on the wall face */
+      if (hid[b.wall]) continue; const hz = b.wall === 'N' || b.wall === 'S', n = { N: .5, S: Ld - .5, W: .5, E: Wd - .5 }[b.wall], fr = b.kind === 'fridge';
+      const m = fr ? M('fridge', () => new THREE.MeshStandardMaterial({ color: col('#D9DCDF'), roughness: .3, metalness: .6 })) : trim;
+      for (const f of [-.25, .25]) { const u = b.off + b.al / 2 + f * b.al; hz ? box(u, 0, n, b.al / 2 - 1.5, fr ? 70 : 80, .9, m) : box(n, 0, u, .9, fr ? 70 : 80, b.al / 2 - 1.5, m); }
+      continue;
+    }
     const near = (b.y <= .5 && hid.N) || (b.y + b.h >= Ld - .5 && hid.S) || (b.x <= .5 && hid.W) || (b.x + b.w >= Wd - .5 && hid.E);
     const wallish = b.kind === 'lcut' || b.kind === 'column' || b.kind === 'closet', h = near ? Math.min(5, b.ht) : b.ht;
-    const m = wallish ? wallM : b.kind === 'fireplace' ? M('stone', () => new THREE.MeshStandardMaterial({ color: col('#B9B2A8'), roughness: .9 }))
+    const m = b.kind === 'fridge' ? M('fridge', () => new THREE.MeshStandardMaterial({ color: col('#D9DCDF'), roughness: .3, metalness: .6 })) : wallish ? wallM : b.kind === 'fireplace' ? M('stone', () => new THREE.MeshStandardMaterial({ color: col('#B9B2A8'), roughness: .9 }))
       : b.kind === 'radiator' ? matPaint('#F2F1EE') : M('blk' + b.kind, () => new THREE.MeshStandardMaterial({ color: col(b.kind === 'stairs' ? '#9C8B78' : '#7D6A58'), roughness: .7 }));
     box(b.x + b.w / 2, 0, b.y + b.h / 2, b.w, h, b.h, m);
     if (near) continue;
