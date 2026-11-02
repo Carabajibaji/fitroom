@@ -778,7 +778,10 @@ function layoutOn(sw){
   const LIVING={
     order:['sofa','tv','coffee','rug','side','lamp','armchair','shelf','plant'],
     sofa:p=>(p.w>A-36||p.d+52>D)?null:slide((A-p.w)/2,A,u=>at(u,0,p.w,p.d,map.wall)),
-    tv:p=>{if(p.w>A-24||G.sofa.p.d+36+p.d>D)return null;return slide((A-p.w)/2,A,u=>at(u,D-p.d,p.w,p.d,map.opp))},
+    tv:p=>{if(p.w>A-24||G.sofa.p.d+36+p.d>D)return null;const wl=map.opp,ws=S.room.window===wl?winSpan(wl):null;
+      const offWin=q=>{if(!q||!ws)return q;const a=wl==='N'||wl==='S'?q.r.x:q.r.y,b=a+(wl==='N'||wl==='S'?q.r.w:q.r.h);return(b<=ws[0]||a>=ws[1])?q:null};
+      /* keep the TV out of the window when it can; otherwise accept it */
+      return slide((A-p.w)/2,A,u=>offWin(at(u,D-p.d,p.w,p.d,map.opp)))||slide((A-p.w)/2,A,u=>at(u,D-p.d,p.w,p.d,map.opp))},
     coffee:p=>{const s=G.sofa;if(p.w>s.p.w*.75)return null;const v=s.p.d+16;
       if(v+p.d+30>D-(G.tv?G.tv.p.d:0))return null;
       const ahead=toRoom(s.u+(s.p.w-p.w)/2,v+p.d,p.w,30);if(BL.some(b=>b.ht>4&&hit(ahead,b)))return null; /* keep a 30" walkway past it */
